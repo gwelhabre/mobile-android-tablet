@@ -1,5 +1,29 @@
 import apiClient from './client';
-import { EventPlanningPack } from '../types';
+import {
+  EventPlannerRevenueLog,
+  EventPlanningPack,
+  EventQuoteRequest,
+  EventQuotation,
+} from '../types';
+
+export interface CreateEventQuoteRequestInput {
+  packId: number | string;
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  selections: Record<string, string>;
+  addons: string[];
+  note?: string;
+}
+
+export interface CreateEventQuotationInput {
+  requestId: number | string;
+  title: string;
+  lineItems: Array<{ name: string; amount: number }>;
+  total: number;
+  notes?: string;
+}
 
 export interface CreateEventPlanningPackInput {
   title: string;
@@ -45,4 +69,52 @@ export const updateEventPlanningPack = async (
 
 export const deleteEventPlanningPack = async (packId: number | string): Promise<void> => {
   await apiClient.delete(`/event-planning/packs/${packId}`);
+};
+
+export const createEventQuoteRequest = async (
+  input: CreateEventQuoteRequestInput,
+): Promise<{ request: EventQuoteRequest; quoteFee: number; newBalance: number }> => {
+  const response = await apiClient.post<{ request: EventQuoteRequest; quoteFee: number; newBalance: number }>(
+    '/event-planning/requests',
+    input,
+  );
+  return response.data;
+};
+
+export const getEventQuoteRequests = async (): Promise<EventQuoteRequest[]> => {
+  const response = await apiClient.get<EventQuoteRequest[]>('/event-planning/requests');
+  return response.data;
+};
+
+export const createEventQuotation = async (
+  input: CreateEventQuotationInput,
+): Promise<EventQuotation> => {
+  const response = await apiClient.post<EventQuotation>('/event-planning/quotations', input);
+  return response.data;
+};
+
+export const getEventPlannerRevenue = async (): Promise<EventPlannerRevenueLog[]> => {
+  const response = await apiClient.get<EventPlannerRevenueLog[]>('/event-planning/revenue');
+  return response.data;
+};
+
+export const selectEventQuotation = async (
+  quotationId: number | string,
+  paymentMethod: 'cash' | 'wallet',
+): Promise<{ request: EventQuoteRequest; quotation: EventQuotation }> => {
+  const response = await apiClient.post<{ request: EventQuoteRequest; quotation: EventQuotation }>(
+    `/event-planning/quotations/${quotationId}/select`,
+    { paymentMethod },
+  );
+  return response.data;
+};
+
+export const rejectEventQuotation = async (
+  quotationId: number | string,
+): Promise<{ quotation: EventQuotation }> => {
+  const response = await apiClient.post<{ quotation: EventQuotation }>(
+    `/event-planning/quotations/${quotationId}/reject`,
+    {},
+  );
+  return response.data;
 };
