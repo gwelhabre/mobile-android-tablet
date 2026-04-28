@@ -26,7 +26,8 @@ const VenueDetailPane: React.FC<{
   onEventPress: (event: Event) => void;
   onFollow: () => void;
   followLoading: boolean;
-}> = ({ venue, onEventPress, onFollow, followLoading }) => {
+  onOpenFullPage: () => void;
+}> = ({ venue, onEventPress, onFollow, followLoading, onOpenFullPage }) => {
   const upcomingEvents = (venue.upcomingEvents ?? venue.events ?? []) as Event[];
 
   return (
@@ -55,6 +56,13 @@ const VenueDetailPane: React.FC<{
         variant={venue.isFollowing ? 'outlined' : 'filled'}
         icon={venue.isFollowing ? 'check-circle' : 'heart-outline'}
         color="#a855f7"
+      />
+      <Button
+        label="Open Full Page"
+        onPress={onOpenFullPage}
+        variant="outlined"
+        icon="open-in-new"
+        size="sm"
       />
       {typeof venue.followersCount === 'number' && (
         <Text style={styles.followersText}>{venue.followersCount.toLocaleString()} followers</Text>
@@ -274,6 +282,7 @@ const VenuesScreen: React.FC = () => {
               onEventPress={(event) => navigation.navigate('EventDetail', { eventId: event.id })}
               onFollow={handleFollowVenue}
               followLoading={followLoading}
+              onOpenFullPage={() => navigation.navigate('VenueDetail', { venueId: String(selected.id) })}
             />
           ) : (
             <EmptyState icon="office-building-outline" title="Select a venue" message="Tap a venue card to view details" />

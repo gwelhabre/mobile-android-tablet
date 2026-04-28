@@ -210,10 +210,19 @@ const EventPlannerDashboardScreen: React.FC = () => {
           <Stat label="Drafts" value={loading ? '...' : String(stats.drafts)} icon="document-text-outline" color="#f59e0b" />
         </View>
 
-        <TouchableOpacity style={styles.primaryAction} onPress={openCreate}>
-          <Ionicons name="add-circle-outline" size={20} color="#ffffff" />
-          <Text style={styles.primaryActionText}>Publish Pack</Text>
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.primaryAction} onPress={openCreate}>
+            <Ionicons name="add-circle-outline" size={20} color="#ffffff" />
+            <Text style={styles.primaryActionText}>Publish Pack</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondaryAction}
+            onPress={() => (navigation as any).navigate('DiscoverStack', { screen: 'PlanYourEvent' })}
+          >
+            <Ionicons name="eye-outline" size={20} color="#10b981" />
+            <Text style={styles.secondaryActionText}>View Public Page</Text>
+          </TouchableOpacity>
+        </View>
 
         {packs.length === 0 && !loading ? (
           <View style={styles.emptyPanel}>
@@ -349,8 +358,11 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, backgroundColor: '#12121a', borderRadius: 14, borderWidth: 1, padding: 14, gap: 6 },
   statValue: { color: '#ffffff', fontSize: 22, fontWeight: '900' },
   statLabel: { color: '#6b7280', fontSize: 12 },
-  primaryAction: { minHeight: 46, borderRadius: 14, backgroundColor: '#06b6d4', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  actionRow: { flexDirection: 'row', gap: 10 },
+  primaryAction: { flex: 1, minHeight: 46, borderRadius: 14, backgroundColor: '#06b6d4', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   primaryActionText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
+  secondaryAction: { flex: 1, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: '#10b98155', backgroundColor: 'rgba(16,185,129,0.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  secondaryActionText: { color: '#10b981', fontSize: 14, fontWeight: '900' },
   emptyPanel: { backgroundColor: '#12121a', borderRadius: 14, borderWidth: 1, borderColor: '#1f1f2e', padding: 22, alignItems: 'center', gap: 8 },
   emptyText: { color: '#6b7280', fontSize: 13, textAlign: 'center' },
   packCard: { backgroundColor: '#12121a', borderRadius: 16, borderWidth: 1, borderColor: '#1f1f2e', padding: 14, gap: 9 },

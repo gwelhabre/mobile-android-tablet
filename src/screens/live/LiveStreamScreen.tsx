@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRoute, RouteProp, useNavigation, DrawerActions } from '@react-navigation/native';
@@ -20,8 +22,11 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Snackbar from '../../components/common/Snackbar';
 import { getStreamById } from '../../api/rankings';
 import { getGiftCatalog } from '../../api/gifts';
+import { sendTip } from '../../api/tips';
 import { LiveStream, ChatMessage, GiftCatalogItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+
+const TIP_PRESETS = [2, 5, 10, 20];
 
 type RouteType = RouteProp<LiveStackParamList, 'LiveStream'>;
 
@@ -53,6 +58,10 @@ const LiveStreamScreen: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [gifts, setGifts] = useState<GiftCatalogItem[]>([]);
   const [showGifts, setShowGifts] = useState(false);
+  const [tipModal, setTipModal] = useState(false);
+  const [tipAmount, setTipAmount] = useState('5');
+  const [tipMessage, setTipMessage] = useState('');
+  const [tipLoading, setTipLoading] = useState(false);
   const [snackbar, setSnackbar] = useState('');
   const [snackType, setSnackType] = useState<'default' | 'success' | 'error'>('default');
   const chatRef = useRef<FlatList>(null);
@@ -97,6 +106,37 @@ const LiveStreamScreen: React.FC = () => {
     setChatInput('');
     setTimeout(() => chatRef.current?.scrollToEnd({ animated: true }), 100);
   }, [chatInput, user, streamId]);
+
+  const handleTip = useCallback(async () => {
+    if (!stream?.djId) return;
+    const amount = Number(tipAmount.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      Alert.alert('Invalid amount', 'Enter a tip amount greater than 0.');
+      return;
+    }
+    if (amount > 20) {
+      Alert.alert('Tip limit', 'Private tips are capped at 20 EUR per DJ per stream/event.');
+      return;
+    }
+    setTipLoading(true);
+    try {
+      const result = await sendTip({
+        djId: stream.djId,
+        amount,
+        liveId: stream.id,
+        message: tipMessage.trim() || undefined,
+      });
+      setTipModal(false);
+      setTipAmount('5');
+      setTipMessage('');
+      setSnackbar(`Tip sent: DJ receives ${result.sellerAmount.toFixed(2)} ${result.currency}`);
+      setSnackType('success');
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.error || err?.response?.data?.message || 'Failed to send tip.');
+    } finally {
+      setTipLoading(false);
+    }
+  }, [stream, tipAmount, tipMessage]);
 
   const sendGift = useCallback((gift: GiftCatalogItem) => {
     if (!user) return;
@@ -177,6 +217,14 @@ const LiveStreamScreen: React.FC = () => {
                 variant="tonal"
                 size="sm"
               />
+              <Button
+                label="Tip"
+                onPress={() => setTipModal(true)}
+                icon="cash"
+                color="#10b981"
+                variant="tonal"
+                size="sm"
+              />
             </View>
           )}
 
@@ -241,6 +289,53 @@ const LiveStreamScreen: React.FC = () => {
       </View>
 
       <Snackbar message={snackbar} visible={!!snackbar} onDismiss={() => setSnackbar('')} type={snackType} />
+
+      <Modal visible={tipModal} transparent animationType="fade" onRequestClose={() => setTipModal(false)}>
+        <View style={styles.tipOverlay}>
+          <View style={styles.tipCard}>
+            <View style={styles.tipHeader}>
+              <Text style={styles.tipTitle}>Tip the DJ</Text>
+              <TouchableOpacity onPress={() => setTipModal(false)} style={styles.tipClose}>
+                <MaterialCommunityIcons name="close" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.tipSubtitle}>Private tip — capped at 20 EUR per DJ per stream/event.</Text>
+            <View style={styles.tipPresets}>
+              {TIP_PRESETS.map((p) => {
+                const active = String(p) === tipAmount;
+                return (
+                  <TouchableOpacity
+                    key={p}
+                    style={[styles.tipPreset, active && styles.tipPresetActive]}
+                    onPress={() => setTipAmount(String(p))}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.tipPresetText, active && styles.tipPresetTextActive]}>{p}€</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TextInput
+              style={styles.tipInput}
+              value={tipAmount}
+              onChangeText={setTipAmount}
+              keyboardType="decimal-pad"
+              placeholder="Amount"
+              placeholderTextColor="#4b5563"
+            />
+            <TextInput
+              style={[styles.tipInput, { minHeight: 60 }]}
+              value={tipMessage}
+              onChangeText={setTipMessage}
+              placeholder="Add a message (optional)"
+              placeholderTextColor="#4b5563"
+              multiline
+              textAlignVertical="top"
+            />
+            <Button label="Send Tip" onPress={handleTip} loading={tipLoading} color="#10b981" fullWidth style={{ marginTop: 12 }} />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -316,6 +411,18 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 10, backgroundColor: '#1a0f2e',
     justifyContent: 'center', alignItems: 'center',
   },
+  tipOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 24 },
+  tipCard: { backgroundColor: '#12121a', borderRadius: 18, borderWidth: 1, borderColor: '#1f1f2e', padding: 18, gap: 12 },
+  tipHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  tipTitle: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  tipClose: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#1f1f2e', alignItems: 'center', justifyContent: 'center' },
+  tipSubtitle: { color: '#9ca3af', fontSize: 12 },
+  tipPresets: { flexDirection: 'row', gap: 8 },
+  tipPreset: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: '#1e1e2e', alignItems: 'center' },
+  tipPresetActive: { borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)' },
+  tipPresetText: { color: '#9ca3af', fontSize: 14, fontWeight: '700' },
+  tipPresetTextActive: { color: '#10b981' },
+  tipInput: { backgroundColor: '#0a0a0f', borderWidth: 1, borderColor: '#1e1e2e', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, color: '#fff', fontSize: 14 },
 });
 
 export default LiveStreamScreen;
