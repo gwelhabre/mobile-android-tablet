@@ -76,6 +76,27 @@ export const createDJSet = async (payload: {
   return response.data;
 };
 
+export interface DJDashboardEvent {
+  id: string;
+  title: string;
+  startTime: string;
+  status: string;
+  venue: { id: string; name: string; city?: string };
+  liveStream?: { id: string; status: string; streamKey: string | null } | null;
+}
+
+export const getDJDashboardEvents = async (status?: string): Promise<DJDashboardEvent[]> => {
+  const response = await apiClient.get<{ events: DJDashboardEvent[] }>('/dj/dashboard/events', {
+    params: status ? { status } : undefined,
+  });
+  return response.data.events ?? [];
+};
+
+export const djStreamAction = async (action: 'start' | 'stop', eventId: string) => {
+  const response = await apiClient.post('/live', { action, eventId });
+  return response.data;
+};
+
 export const getDJAnalytics = async (period: string = '30d'): Promise<Record<string, unknown>> => {
   const response = await apiClient.get('/djs/me/analytics', { params: { period } });
   return response.data;
