@@ -1,41 +1,65 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 
+/** Cross-platform variant aliases mapped to colors. */
+type Variant = 'purple' | 'emerald' | 'gold' | 'amber' | 'red' | 'blue' | 'gray' | 'yellow' | 'green';
+
+const VARIANT_COLORS: Record<Variant, string> = {
+  purple: '#a855f7',
+  emerald: '#10b981',
+  green: '#10b981',
+  gold: '#f59e0b',
+  amber: '#f59e0b',
+  yellow: '#f59e0b',
+  red: '#ef4444',
+  blue: '#3b82f6',
+  gray: '#6b7280',
+};
+
 interface BadgeProps {
   label: string;
+  /** Direct color override (tablet API). */
   color?: string;
+  /** Cross-platform alias (iOS/iPad API) — mapped to a color. */
+  variant?: Variant;
   textColor?: string;
   small?: boolean;
+  /** Cross-platform alias for `small`. */
+  size?: 'sm' | 'md';
   style?: ViewStyle;
   outlined?: boolean;
 }
 
 const Badge: React.FC<BadgeProps> = ({
   label,
-  color = '#a855f7',
+  color,
+  variant,
   textColor,
-  small = false,
+  small,
+  size,
   style,
   outlined = false,
 }) => {
-  const resolvedTextColor = textColor || (outlined ? color : '#fff');
+  const resolvedColor = color ?? (variant ? VARIANT_COLORS[variant] : undefined) ?? '#a855f7';
+  const isSmall = small ?? size === 'sm' ?? false;
+  const resolvedTextColor = textColor || (outlined ? resolvedColor : '#fff');
 
   return (
     <View
       style={[
         styles.badge,
-        small && styles.small,
+        isSmall && styles.small,
         outlined
-          ? { backgroundColor: 'transparent', borderWidth: 1, borderColor: color }
-          : { backgroundColor: `${color}30` },
+          ? { backgroundColor: 'transparent', borderWidth: 1, borderColor: resolvedColor }
+          : { backgroundColor: `${resolvedColor}30` },
         style,
       ]}
     >
       <Text
         style={[
           styles.text,
-          small && styles.textSmall,
-          { color: outlined ? color : resolvedTextColor },
+          isSmall && styles.textSmall,
+          { color: outlined ? resolvedColor : resolvedTextColor },
         ]}
       >
         {label}

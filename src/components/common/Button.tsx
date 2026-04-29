@@ -9,33 +9,64 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+type TabletVariant = 'filled' | 'outlined' | 'text' | 'tonal';
+type CrossVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';
+
 interface ButtonProps {
-  label: string;
+  /** Either `label` or `title` works (cross-platform alias). */
+  label?: string;
+  title?: string;
   onPress: () => void;
-  variant?: 'filled' | 'outlined' | 'text' | 'tonal';
+  /** Tablet variants `filled|outlined|text|tonal`, plus cross-platform aliases `primary|secondary|danger|ghost|outline`. */
+  variant?: TabletVariant | CrossVariant;
   size?: 'sm' | 'md' | 'lg';
   color?: string;
   icon?: string;
+  /** Either `loading` or `isLoading` works. */
   loading?: boolean;
+  isLoading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
   fullWidth?: boolean;
 }
 
+const VARIANT_ALIASES: Record<CrossVariant, TabletVariant> = {
+  primary: 'filled',
+  secondary: 'outlined',
+  outline: 'outlined',
+  ghost: 'text',
+  danger: 'filled',
+};
+
+const VARIANT_DEFAULT_COLOR: Partial<Record<CrossVariant, string>> = {
+  danger: '#ef4444',
+};
+
+const normalizeVariant = (v: TabletVariant | CrossVariant): TabletVariant => {
+  if (v === 'filled' || v === 'outlined' || v === 'text' || v === 'tonal') return v;
+  return VARIANT_ALIASES[v];
+};
+
 const Button: React.FC<ButtonProps> = ({
   label,
+  title,
   onPress,
   variant = 'filled',
   size = 'md',
-  color = '#a855f7',
+  color,
   icon,
-  loading = false,
+  loading,
+  isLoading,
   disabled = false,
   style,
   textStyle,
   fullWidth = false,
 }) => {
+  const text = label ?? title ?? '';
+  const busy = loading ?? isLoading ?? false;
+  const tabletVariant = normalizeVariant(variant);
+  const resolvedColor = color ?? VARIANT_DEFAULT_COLOR[variant as CrossVariant] ?? '#a855f7';
   const sizeStyles = {
     sm: { paddingVertical: 8, paddingHorizontal: 16, fontSize: 13, iconSize: 16 },
     md: { paddingVertical: 12, paddingHorizontal: 22, fontSize: 14, iconSize: 18 },
@@ -43,22 +74,22 @@ const Button: React.FC<ButtonProps> = ({
   }[size];
 
   const variantContainerStyle: ViewStyle = {
-    filled: { backgroundColor: disabled ? '#374151' : color },
+    filled: { backgroundColor: disabled ? '#374151' : resolvedColor },
     outlined: {
       backgroundColor: 'transparent',
       borderWidth: 1.5,
-      borderColor: disabled ? '#374151' : color,
+      borderColor: disabled ? '#374151' : resolvedColor,
     },
     text: { backgroundColor: 'transparent' },
-    tonal: { backgroundColor: disabled ? '#1f2937' : `${color}25` },
-  }[variant] as ViewStyle;
+    tonal: { backgroundColor: disabled ? '#1f2937' : `${resolvedColor}25` },
+  }[tabletVariant] as ViewStyle;
 
   const variantTextColor = {
     filled: disabled ? '#6b7280' : '#fff',
-    outlined: disabled ? '#6b7280' : color,
-    text: disabled ? '#6b7280' : color,
-    tonal: disabled ? '#6b7280' : color,
-  }[variant];
+    outlined: disabled ? '#6b7280' : resolvedColor,
+    text: disabled ? '#6b7280' : resolvedColor,
+    tonal: disabled ? '#6b7280' : resolvedColor,
+  }[tabletVariant];
 
   return (
     <TouchableOpacity
@@ -70,10 +101,10 @@ const Button: React.FC<ButtonProps> = ({
         style,
       ]}
       onPress={onPress}
-      disabled={disabled || loading}
+      disabled={disabled || busy}
       activeOpacity={0.8}
     >
-      {loading ? (
+      {busy ? (
         <ActivityIndicator size={sizeStyles.iconSize} color={variantTextColor} />
       ) : (
         <>
@@ -91,7 +122,7 @@ const Button: React.FC<ButtonProps> = ({
               textStyle,
             ]}
           >
-            {label}
+            {text}
           </Text>
         </>
       )}
