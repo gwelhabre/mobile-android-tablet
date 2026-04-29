@@ -17,11 +17,29 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   createEventPlanningPack,
+  createEventQuotation,
   deleteEventPlanningPack,
+  getEventPlannerRevenue,
   getEventPlanningPacks,
+  getEventQuoteRequests,
   updateEventPlanningPack,
 } from '../../api/eventPlanning';
-import { EventPlanningComponents, EventPlanningPack } from '../../types';
+import {
+  EventPlannerRevenueLog,
+  EventPlanningComponents,
+  EventPlanningPack,
+  EventQuoteRequest,
+} from '../../types';
+
+const parseLineItems = (raw: string, fallbackName: string, total: number) => {
+  const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return [{ name: fallbackName, amount: total }];
+  return lines.map((line) => {
+    const match = line.match(/^(.*?)[\s|—–-]+\$?(\d+(?:\.\d+)?)\s*$/);
+    if (match) return { name: match[1].trim() || fallbackName, amount: Number(match[2]) };
+    return { name: line, amount: 0 };
+  });
+};
 
 const DEFAULT_COMPONENTS: EventPlanningComponents = {
   djSet: ['DJ set - 2 hours', 'Premium DJ set - 4 hours', 'DJ set with MC hosting'],
@@ -48,10 +66,18 @@ const parseOptionLines = (value: string) =>
 const EventPlannerDashboardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const [packs, setPacks] = useState<EventPlanningPack[]>([]);
+  const [requests, setRequests] = useState<EventQuoteRequest[]>([]);
+  const [revenue, setRevenue] = useState<EventPlannerRevenueLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPack, setEditingPack] = useState<EventPlanningPack | null>(null);
+  const [quoteRequest, setQuoteRequest] = useState<EventQuoteRequest | null>(null);
+  const [quoteTitle, setQuoteTitle] = useState('');
+  const [quoteLineItems, setQuoteLineItems] = useState('');
+  const [quoteTotal, setQuoteTotal] = useState('');
+  const [quoteNotes, setQuoteNotes] = useState('');
+  const [sendingQuote, setSendingQuote] = useState(false);
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [basePrice, setBasePrice] = useState('');
@@ -65,9 +91,18 @@ const EventPlannerDashboardScreen: React.FC = () => {
 
   const load = async () => {
     try {
-      setPacks(await getEventPlanningPacks(true));
+      const [packData, requestData, revenueData] = await Promise.all([
+        getEventPlanningPacks(true),
+        getEventQuoteRequests().catch(() => [] as EventQuoteRequest[]),
+        getEventPlannerRevenue().catch(() => [] as EventPlannerRevenueLog[]),
+      ]);
+      setPacks(packData);
+      setRequests(requestData);
+      setRevenue(revenueData);
     } catch {
       setPacks([]);
+      setRequests([]);
+      setRevenue([]);
     }
   };
 
@@ -75,10 +110,52 @@ const EventPlannerDashboardScreen: React.FC = () => {
     load().finally(() => setLoading(false));
   }, []);
 
-  const stats = useMemo(() => ({
-    published: packs.filter((pack) => pack.status === 'published').length,
-    drafts: packs.filter((pack) => pack.status === 'draft').length,
-  }), [packs]);
+  const stats = useMemo(() => {
+    const made = revenue.filter((log) => log.status === 'made').reduce((sum, log) => sum + log.amount, 0);
+    const locked = revenue.filter((log) => log.status === 'locked').reduce((sum, log) => sum + log.amount, 0);
+    return {
+      published: packs.filter((pack) => pack.status === 'published').length,
+      drafts: packs.filter((pack) => pack.status === 'draft').length,
+      newRequests: requests.filter((r) => r.status === 'submitted').length,
+      quoted: requests.filter((r) => r.status === 'quoted').length,
+      revenueMade: made,
+      revenueLocked: locked,
+    };
+  }, [packs, requests, revenue]);
+
+  const openQuoteModal = (request: EventQuoteRequest) => {
+    setQuoteRequest(request);
+    setQuoteTitle(request.pack?.title ? `${request.pack.title} quotation` : 'Event quotation');
+    setQuoteLineItems('');
+    setQuoteTotal('');
+    setQuoteNotes('');
+  };
+
+  const submitQuote = async () => {
+    if (!quoteRequest) return;
+    const total = Number(quoteTotal);
+    if (!quoteTitle.trim() || !Number.isFinite(total) || total <= 0) {
+      Alert.alert('Missing quote details', 'Add a quotation name and a total greater than zero.');
+      return;
+    }
+    setSendingQuote(true);
+    try {
+      await createEventQuotation({
+        requestId: quoteRequest.id,
+        title: quoteTitle.trim(),
+        lineItems: parseLineItems(quoteLineItems, quoteTitle.trim(), total),
+        total,
+        notes: quoteNotes.trim() || undefined,
+      });
+      setQuoteRequest(null);
+      await load();
+      Alert.alert('Quotation sent', 'The requester can now review and choose payment.');
+    } catch (err: any) {
+      Alert.alert('Could not send quotation', err?.response?.data?.error ?? 'Please try again.');
+    } finally {
+      setSendingQuote(false);
+    }
+  };
 
   const resetForm = () => {
     setEditingPack(null);
@@ -207,7 +284,12 @@ const EventPlannerDashboardScreen: React.FC = () => {
 
         <View style={styles.statsRow}>
           <Stat label="Published" value={loading ? '...' : String(stats.published)} icon="albums-outline" color="#06b6d4" />
-          <Stat label="Drafts" value={loading ? '...' : String(stats.drafts)} icon="document-text-outline" color="#f59e0b" />
+          <Stat label="New Requests" value={loading ? '...' : String(stats.newRequests)} icon="clipboard-outline" color="#f59e0b" />
+          <Stat label="Quoted" value={loading ? '...' : String(stats.quoted)} icon="send-outline" color="#10b981" />
+        </View>
+        <View style={styles.statsRow}>
+          <Stat label="Revenue Made" value={loading ? '...' : `$${stats.revenueMade.toFixed(0)}`} icon="wallet-outline" color="#22c55e" />
+          <Stat label="Revenue Locked" value={loading ? '...' : `$${stats.revenueLocked.toFixed(0)}`} icon="lock-closed-outline" color="#a855f7" />
         </View>
 
         <View style={styles.actionRow}>
@@ -224,6 +306,7 @@ const EventPlannerDashboardScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        <Text style={styles.sectionTitle}>Published Packs</Text>
         {packs.length === 0 && !loading ? (
           <View style={styles.emptyPanel}>
             <Ionicons name="file-tray-outline" size={26} color="#4b5563" />
@@ -252,6 +335,77 @@ const EventPlannerDashboardScreen: React.FC = () => {
                   <Ionicons name="trash-outline" size={16} color="#fca5a5" />
                   <Text style={styles.deleteText}>Delete</Text>
                 </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
+
+        <Text style={styles.sectionTitle}>Quote Requests</Text>
+        {requests.length === 0 ? (
+          <View style={styles.emptyPanel}>
+            <Ionicons name="clipboard-outline" size={26} color="#4b5563" />
+            <Text style={styles.emptyText}>Incoming quote requests will appear here.</Text>
+          </View>
+        ) : (
+          requests.map((request) => (
+            <View key={String(request.id)} style={styles.packCard}>
+              <View style={styles.packHeader}>
+                <View style={styles.packTitleWrap}>
+                  <Text style={styles.packTitle}>{request.pack?.title ?? 'Custom event request'}</Text>
+                  <Text style={styles.packSubtitle}>{request.requester?.name ?? request.requester?.email ?? 'Requester'}</Text>
+                </View>
+                <View style={[styles.statusBadge, request.status === 'submitted' ? styles.draftBadge : styles.publishedBadge]}>
+                  <Text style={styles.statusBadgeText}>{request.status}</Text>
+                </View>
+              </View>
+              <View style={styles.detailGrid}>
+                <Detail label="Date" value={String(request.eventDate).slice(0, 10)} />
+                <Detail label="Time" value={`${request.startTime} - ${request.endTime}`} />
+                <Detail label="Fee" value={request.quoteFeePaid ? '$30 paid' : 'Unpaid'} />
+              </View>
+              <Detail label="Location" value={request.location} full />
+              <Detail
+                label="Selections"
+                value={Object.entries(request.selections ?? {}).map(([key, value]) => `${key}: ${value}`).join('\n') || 'None'}
+                full
+              />
+              <Detail label="Addons" value={request.addons.length ? request.addons.join(', ') : 'None'} full />
+              {request.note ? <Detail label="Notes" value={request.note} full /> : null}
+              {(request.quotations ?? []).length > 0 && (
+                <View style={styles.quoteList}>
+                  {(request.quotations ?? []).map((quote) => (
+                    <View key={String(quote.id)} style={styles.sentQuote}>
+                      <Text style={styles.sentQuoteTitle}>{quote.title}</Text>
+                      <Text style={styles.sentQuoteAmount}>{quote.currency} {quote.total.toFixed(2)}</Text>
+                      <Text style={styles.sentQuoteStatus}>{quote.status.replace('_', ' ')}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              <TouchableOpacity style={styles.sendQuoteBtn} onPress={() => openQuoteModal(request)}>
+                <Ionicons name="send-outline" size={16} color="#ffffff" />
+                <Text style={styles.sendQuoteText}>Send Quotation</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+
+        <Text style={styles.sectionTitle}>Revenue Log</Text>
+        {revenue.length === 0 ? (
+          <View style={styles.emptyPanel}>
+            <Ionicons name="wallet-outline" size={26} color="#4b5563" />
+            <Text style={styles.emptyText}>Selected quotations will create locked or made revenue logs.</Text>
+          </View>
+        ) : (
+          revenue.map((log) => (
+            <View key={String(log.id)} style={styles.revenueRow}>
+              <View style={styles.packTitleWrap}>
+                <Text style={styles.revenueTitle}>{log.quotation?.title ?? log.description ?? 'Event quotation'}</Text>
+                <Text style={styles.revenueMeta}>{String(log.createdAt).slice(0, 10)} · {log.paymentMethod ?? 'n/a'}</Text>
+              </View>
+              <View style={styles.revenueAmountWrap}>
+                <Text style={styles.revenueAmount}>{log.currency} {log.amount.toFixed(2)}</Text>
+                <Text style={[styles.revenueStatus, log.status === 'made' ? styles.revenueStatusMade : styles.revenueStatusLocked]}>{log.status}</Text>
               </View>
             </View>
           ))
@@ -307,9 +461,59 @@ const EventPlannerDashboardScreen: React.FC = () => {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      <Modal visible={!!quoteRequest} transparent animationType="fade" onRequestClose={() => setQuoteRequest(null)}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalKeyboard}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Send Quotation</Text>
+                <TouchableOpacity style={styles.closeBtn} onPress={() => setQuoteRequest(null)}>
+                  <Ionicons name="close" size={20} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
+                <TextInput style={styles.input} value={quoteTitle} onChangeText={setQuoteTitle} placeholder="Quotation name" placeholderTextColor="#4b5563" />
+                <TextInput style={styles.input} value={quoteTotal} onChangeText={setQuoteTotal} placeholder="Total amount" placeholderTextColor="#4b5563" keyboardType="numeric" />
+                <View style={styles.optionEditor}>
+                  <Text style={styles.optionEditorLabel}>Line Items</Text>
+                  <TextInput
+                    style={[styles.input, styles.optionTextArea]}
+                    value={quoteLineItems}
+                    onChangeText={setQuoteLineItems}
+                    multiline
+                    textAlignVertical="top"
+                    placeholder="One per line. Format: 'DJ set — 800' or 'Lighting'"
+                    placeholderTextColor="#4b5563"
+                  />
+                </View>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={quoteNotes}
+                  onChangeText={setQuoteNotes}
+                  placeholder="Notes for the requester (optional)"
+                  placeholderTextColor="#4b5563"
+                  multiline
+                  textAlignVertical="top"
+                />
+                <TouchableOpacity style={[styles.saveBtn, sendingQuote && styles.saveBtnDisabled]} onPress={submitQuote} disabled={sendingQuote}>
+                  <Text style={styles.saveBtnText}>{sendingQuote ? 'Sending...' : 'Send Quotation'}</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
+
+const Detail = ({ label, value, full }: { label: string; value: string; full?: boolean }) => (
+  <View style={[styles.detailItem, full && styles.detailItemFull]}>
+    <Text style={styles.detailLabel}>{label}</Text>
+    <Text style={styles.detailValue}>{value}</Text>
+  </View>
+);
 
 const Stat = ({ label, value, icon, color }: { label: string; value: string; icon: any; color: string }) => (
   <View style={[styles.statCard, { borderColor: `${color}55` }]}>
@@ -403,6 +607,27 @@ const styles = StyleSheet.create({
   saveBtn: { minHeight: 46, borderRadius: 12, backgroundColor: '#06b6d4', alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.7 },
   saveBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
+  sectionTitle: { color: '#ffffff', fontSize: 15, fontWeight: '900', marginTop: 6 },
+  detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  detailItem: { minWidth: 90 },
+  detailItemFull: { width: '100%' },
+  detailLabel: { color: '#6b7280', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
+  detailValue: { color: '#e5e7eb', fontSize: 13, lineHeight: 18, marginTop: 2 },
+  quoteList: { gap: 6, paddingVertical: 4 },
+  sentQuote: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#0a0a0f', borderRadius: 10, borderWidth: 1, borderColor: '#1f1f2e', padding: 10 },
+  sentQuoteTitle: { color: '#e5e7eb', fontSize: 12, fontWeight: '700', flex: 1 },
+  sentQuoteAmount: { color: '#10b981', fontSize: 12, fontWeight: '900' },
+  sentQuoteStatus: { color: '#9ca3af', fontSize: 11, textTransform: 'capitalize' },
+  sendQuoteBtn: { minHeight: 38, borderRadius: 10, backgroundColor: '#06b6d4', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+  sendQuoteText: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
+  revenueRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#12121a', borderRadius: 14, borderWidth: 1, borderColor: '#1f1f2e', padding: 14 },
+  revenueTitle: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
+  revenueMeta: { color: '#6b7280', fontSize: 11, marginTop: 2 },
+  revenueAmountWrap: { alignItems: 'flex-end' },
+  revenueAmount: { color: '#10b981', fontSize: 15, fontWeight: '900' },
+  revenueStatus: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase', marginTop: 2 },
+  revenueStatusMade: { color: '#22c55e' },
+  revenueStatusLocked: { color: '#a855f7' },
 });
 
 export default EventPlannerDashboardScreen;
