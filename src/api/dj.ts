@@ -63,6 +63,19 @@ export const unfollowDJ = async (djId: string): Promise<{ following: boolean }> 
   return response.data;
 };
 
+export const createDJSet = async (payload: {
+  title: string;
+  description?: string;
+  coverImage?: string;
+  previewUrl?: string;
+  price?: number;
+  accessType?: 'free' | 'paid' | 'subscription';
+  visibility?: 'public' | 'unlisted' | 'private';
+}) => {
+  const response = await apiClient.post('/djs/me/sets', payload);
+  return response.data;
+};
+
 export const getDJAnalytics = async (period: string = '30d'): Promise<Record<string, unknown>> => {
   const response = await apiClient.get('/djs/me/analytics', { params: { period } });
   return response.data;
