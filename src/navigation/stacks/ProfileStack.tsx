@@ -7,6 +7,7 @@ import ChangePasswordScreen from '../../screens/profile/ChangePasswordScreen';
 import DeleteAccountScreen from '../../screens/profile/DeleteAccountScreen';
 import BlockedUsersScreen from '../../screens/profile/BlockedUsersScreen';
 import EventPlannerDashboardScreen from '../../screens/eventPlanner/EventPlannerDashboardScreen';
+import InfoScreen from '../../screens/info/InfoScreen';
 
 export type ProfileStackParamList = {
   Profile: undefined;
@@ -16,6 +17,7 @@ export type ProfileStackParamList = {
   DeleteAccount: undefined;
   BlockedUsers: undefined;
   EventPlannerDashboard: undefined;
+  Info: { topic: string };
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -29,6 +31,7 @@ const ProfileStack: React.FC = () => (
     <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
     <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
     <Stack.Screen name="EventPlannerDashboard" component={EventPlannerDashboardScreen} />
+    <Stack.Screen name="Info" component={InfoScreen} />
   </Stack.Navigator>
 );
 
