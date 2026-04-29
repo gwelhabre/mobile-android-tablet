@@ -28,6 +28,22 @@ export const updateProduct = async (productId: string, data: Partial<Marketplace
   return response.data;
 };
 
+export const buyProduct = async (productId: string): Promise<{ order?: unknown; newBalance?: number }> => {
+  const response = await apiClient.post('/marketplace/buy', { productId });
+  return response.data;
+};
+
+export const getMyOrders = async (): Promise<any[]> => {
+  const response = await apiClient.get<any>('/marketplace/orders');
+  const data = response.data;
+  return Array.isArray(data) ? data : (data?.orders ?? []);
+};
+
+export const getMyListings = async (): Promise<any[]> => {
+  const response = await apiClient.get<{ products: any[] }>('/marketplace/products/mine');
+  return response.data?.products ?? [];
+};
+
 export const purchaseProduct = async (productId: string): Promise<MarketplaceOrder> => {
   const response = await apiClient.post<{ order?: MarketplaceOrder; newBalance?: number } | MarketplaceOrder>('/marketplace/buy', { productId });
   const payload = response.data as { order?: MarketplaceOrder } | MarketplaceOrder;

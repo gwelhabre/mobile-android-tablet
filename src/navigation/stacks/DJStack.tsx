@@ -4,12 +4,14 @@ import DJDashboardScreen from '../../screens/dj/DJDashboardScreen';
 import DJAnalyticsScreen from '../../screens/dj/DJAnalyticsScreen';
 import DJSetsScreen from '../../screens/dj/DJSetsScreen';
 import DJDealsScreen from '../../screens/dj/DJDealsScreen';
+import DJVideosScreen from '../../screens/dj/DJVideosScreen';
 
 export type DJStackParamList = {
   DJDashboard: undefined;
   DJAnalytics: undefined;
   DJSets: undefined;
   DJDeals: undefined;
+  DJVideos: undefined;
 };
 
 const Stack = createNativeStackNavigator<DJStackParamList>();
@@ -20,6 +22,7 @@ const DJStack: React.FC = () => (
     <Stack.Screen name="DJAnalytics" component={DJAnalyticsScreen} />
     <Stack.Screen name="DJSets" component={DJSetsScreen} />
     <Stack.Screen name="DJDeals" component={DJDealsScreen} />
+    <Stack.Screen name="DJVideos" component={DJVideosScreen} />
   </Stack.Navigator>
 );
 
