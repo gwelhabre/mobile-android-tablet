@@ -301,6 +301,17 @@ export const getVenueDeals = async (): Promise<import('../types').BookingDeal[]>
   return response.data;
 };
 
+export const createVenueDeal = async (payload: {
+  djId: string;
+  venueId: string;
+  proposedFee?: number;
+  eventDate?: string;
+  notes?: string;
+}) => {
+  const response = await apiClient.post<{ deal: any }>('/venue/deals', payload);
+  return response.data.deal;
+};
+
 export const createDeal = async (data: Partial<import('../types').BookingDeal>): Promise<import('../types').BookingDeal> => {
   const response = await apiClient.post<import('../types').BookingDeal>('/deals', data);
   return response.data;
