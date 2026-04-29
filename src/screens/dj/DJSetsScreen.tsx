@@ -7,16 +7,21 @@ import {
   TouchableOpacity,
   Switch,
   RefreshControl,
+  Modal,
+  TextInput,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import PageHeader from '../../components/layout/PageHeader';
 import FAB from '../../components/layout/FAB';
 import Badge from '../../components/common/Badge';
+import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import Snackbar from '../../components/common/Snackbar';
-import { getDJSets, updateSet, deleteSet } from '../../api/dj';
+import { getDJSets, updateSet, deleteSet, createDJSet } from '../../api/dj';
 import { DigitalSet } from '../../types';
 
 const DJSetsScreen: React.FC = () => {
@@ -26,6 +31,43 @@ const DJSetsScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [snackbar, setSnackbar] = useState('');
   const [snackType, setSnackType] = useState<'default' | 'success' | 'error'>('default');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [coverImage, setCoverImage] = useState('');
+  const [price, setPrice] = useState('0');
+  const [accessType, setAccessType] = useState<'free' | 'paid' | 'subscription'>('free');
+  const [saving, setSaving] = useState(false);
+
+  const submitSet = async () => {
+    if (!title.trim()) {
+      Alert.alert('Missing title', 'Set title is required.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await createDJSet({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        previewUrl: previewUrl.trim() || undefined,
+        coverImage: coverImage.trim() || undefined,
+        price: accessType === 'paid' ? Number(price) || 0 : 0,
+        accessType,
+        visibility: 'public',
+      });
+      setTitle(''); setDescription(''); setPreviewUrl(''); setCoverImage(''); setPrice('0'); setAccessType('free');
+      setModalVisible(false);
+      await fetchSets();
+      setSnackbar('Set published');
+      setSnackType('success');
+    } catch (err: any) {
+      setSnackbar(err?.response?.data?.error ?? 'Could not publish set');
+      setSnackType('error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const fetchSets = useCallback(async () => {
     try {
@@ -96,7 +138,7 @@ const DJSetsScreen: React.FC = () => {
           title="No sets yet"
           message="Upload your first digital set to start selling"
           actionLabel="Upload Set"
-          onAction={() => setSnackbar('Upload coming soon')}
+          onAction={() => setModalVisible(true)}
         />
       ) : (
         <View style={styles.tableContainer}>
@@ -158,9 +200,40 @@ const DJSetsScreen: React.FC = () => {
       <FAB
         icon="plus"
         label="Upload Set"
-        onPress={() => setSnackbar('Upload feature coming soon')}
+        onPress={() => setModalVisible(true)}
         color="#a855f7"
       />
+
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>New Set</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+                <MaterialCommunityIcons name="close" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalBody}>
+              <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Set title" placeholderTextColor="#4b5563" />
+              <TextInput style={[styles.input, { minHeight: 80 }]} value={description} onChangeText={setDescription} placeholder="Description" placeholderTextColor="#4b5563" multiline textAlignVertical="top" />
+              <TextInput style={styles.input} value={previewUrl} onChangeText={setPreviewUrl} placeholder="Preview URL (audio)" placeholderTextColor="#4b5563" autoCapitalize="none" />
+              <TextInput style={styles.input} value={coverImage} onChangeText={setCoverImage} placeholder="Cover image URL" placeholderTextColor="#4b5563" autoCapitalize="none" />
+              <Text style={styles.modalLabel}>Access</Text>
+              <View style={styles.chipRow}>
+                {(['free', 'paid', 'subscription'] as const).map((t) => (
+                  <TouchableOpacity key={t} style={[styles.chip, accessType === t && styles.chipActive]} onPress={() => setAccessType(t)}>
+                    <Text style={[styles.chipText, accessType === t && styles.chipTextActive]}>{t}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {accessType === 'paid' && (
+                <TextInput style={styles.input} value={price} onChangeText={setPrice} placeholder="Price" placeholderTextColor="#4b5563" keyboardType="decimal-pad" />
+              )}
+              <Button label={saving ? 'Publishing...' : 'Publish Set'} onPress={submitSet} loading={saving} fullWidth />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Snackbar message={snackbar} visible={!!snackbar} onDismiss={() => setSnackbar('')} type={snackType} />
     </View>
@@ -196,6 +269,19 @@ const styles = StyleSheet.create({
   setTitle: { color: '#f3f4f6', fontSize: 13, fontWeight: '600' },
   setDuration: { color: '#6b7280', fontSize: 11 },
   actionBtn: { padding: 6 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 24 },
+  modalCard: { maxHeight: '88%', backgroundColor: '#12121a', borderRadius: 18, borderWidth: 1, borderColor: '#263241', padding: 18, maxWidth: 520, alignSelf: 'center', width: '100%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  modalTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  closeBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#1f1f2e', alignItems: 'center', justifyContent: 'center' },
+  modalBody: { gap: 10 },
+  input: { backgroundColor: '#0a0a0f', borderWidth: 1, borderColor: '#2d2d3d', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: '#fff', fontSize: 14 },
+  modalLabel: { color: '#9ca3af', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
+  chipRow: { flexDirection: 'row', gap: 6 },
+  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1, borderColor: '#2d2d3d', backgroundColor: '#0a0a0f' },
+  chipActive: { borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.12)' },
+  chipText: { color: '#9ca3af', fontSize: 12, fontWeight: '700' },
+  chipTextActive: { color: '#a855f7' },
 });
 
 export default DJSetsScreen;

@@ -6,18 +6,25 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
+  Modal,
+  TextInput,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import PageHeader from '../../components/layout/PageHeader';
 import FAB from '../../components/layout/FAB';
 import Badge from '../../components/common/Badge';
+import Button from '../../components/common/Button';
 import Avatar from '../../components/common/Avatar';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import Snackbar from '../../components/common/Snackbar';
-import { getVenueDeals } from '../../api/events';
-import { BookingDeal } from '../../types';
+import { getVenueDeals, createVenueDeal } from '../../api/events';
+import { getMyVenues } from '../../api/rankings';
+import { getDJs } from '../../api/dj';
+import { BookingDeal, DJProfile } from '../../types';
 
 const dealStatusColors: Record<string, string> = {
   proposed: '#3b82f6', negotiating: '#f59e0b', accepted: '#10b981',
@@ -32,6 +39,73 @@ const VenueDealsScreen: React.FC = () => {
   const [filter, setFilter] = useState('all');
   const [snackbar, setSnackbar] = useState('');
   const [snackType, setSnackType] = useState<'default' | 'success' | 'error'>('default');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [venues, setVenues] = useState<Array<{ id: string; name: string; city?: string | null }>>([]);
+  const [selectedVenueId, setSelectedVenueId] = useState('');
+  const [djSearch, setDjSearch] = useState('');
+  const [djs, setDjs] = useState<DJProfile[]>([]);
+  const [selectedDj, setSelectedDj] = useState<DJProfile | null>(null);
+  const [proposedFee, setProposedFee] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const loadVenues = async () => {
+    try {
+      const data = await getMyVenues();
+      setVenues(data);
+      if (data.length === 1) setSelectedVenueId(String(data[0].id));
+    } catch {
+      setVenues([]);
+    }
+  };
+
+  const searchDjs = async (q: string) => {
+    setDjSearch(q);
+    if (q.trim().length < 2) { setDjs([]); return; }
+    try {
+      const data = await getDJs(q.trim());
+      setDjs(data.slice(0, 10));
+    } catch {
+      setDjs([]);
+    }
+  };
+
+  const submitDeal = async () => {
+    if (!selectedDj) {
+      Alert.alert('Pick a DJ', 'Search and select a DJ to propose to.');
+      return;
+    }
+    if (!selectedVenueId) {
+      Alert.alert('Pick a venue', 'Select one of your venues.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await createVenueDeal({
+        djId: String(selectedDj.id),
+        venueId: selectedVenueId,
+        proposedFee: proposedFee.trim() ? Number(proposedFee) : undefined,
+        eventDate: eventDate.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+      setSelectedDj(null); setDjSearch(''); setDjs([]); setProposedFee(''); setEventDate(''); setNotes('');
+      setModalVisible(false);
+      await fetchDeals();
+      setSnackbar('Proposal sent');
+      setSnackType('success');
+    } catch (err: any) {
+      setSnackbar(err?.response?.data?.error ?? 'Could not propose deal');
+      setSnackType('error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openModal = () => {
+    if (venues.length === 0) loadVenues();
+    setModalVisible(true);
+  };
 
   const fetchDeals = useCallback(async () => {
     try {
@@ -46,7 +120,7 @@ const VenueDealsScreen: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { fetchDeals(); }, [fetchDeals]);
+  useEffect(() => { fetchDeals(); loadVenues(); }, [fetchDeals]);
 
   const filteredDeals = filter === 'all' ? deals : deals.filter((d) => d.status === filter);
 
@@ -148,9 +222,78 @@ const VenueDealsScreen: React.FC = () => {
       <FAB
         icon="plus"
         label="New Deal"
-        onPress={() => setSnackbar('Create deal coming soon')}
+        onPress={openModal}
         color="#10b981"
       />
+
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Propose Deal</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+                <MaterialCommunityIcons name="close" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalBody}>
+              {venues.length > 1 && (
+                <>
+                  <Text style={styles.modalLabel}>Venue</Text>
+                  <View style={styles.modalChipRow}>
+                    {venues.map((v) => (
+                      <TouchableOpacity
+                        key={v.id}
+                        style={[styles.modalChip, String(v.id) === selectedVenueId && styles.modalChipActive]}
+                        onPress={() => setSelectedVenueId(String(v.id))}
+                      >
+                        <Text style={[styles.modalChipText, String(v.id) === selectedVenueId && styles.modalChipTextActive]}>{v.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              <Text style={styles.modalLabel}>DJ</Text>
+              {selectedDj ? (
+                <View style={styles.selectedDj}>
+                  <Avatar uri={selectedDj.avatarUrl} name={selectedDj.displayName ?? 'DJ'} size={36} />
+                  <Text style={styles.selectedDjName}>{selectedDj.displayName}</Text>
+                  <TouchableOpacity onPress={() => setSelectedDj(null)}>
+                    <MaterialCommunityIcons name="close-circle" size={20} color="#6b7280" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={djSearch}
+                    onChangeText={searchDjs}
+                    placeholder="Search DJs..."
+                    placeholderTextColor="#4b5563"
+                  />
+                  {djs.map((dj) => (
+                    <TouchableOpacity key={String(dj.id)} style={styles.djRow} onPress={() => { setSelectedDj(dj); setDjs([]); setDjSearch(''); }}>
+                      <Avatar uri={dj.avatarUrl} name={dj.displayName ?? 'DJ'} size={32} />
+                      <Text style={styles.djRowName}>{dj.displayName}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+
+              <Text style={styles.modalLabel}>Proposed Fee</Text>
+              <TextInput style={styles.modalInput} value={proposedFee} onChangeText={setProposedFee} placeholder="e.g. 800" placeholderTextColor="#4b5563" keyboardType="decimal-pad" />
+
+              <Text style={styles.modalLabel}>Event Date</Text>
+              <TextInput style={styles.modalInput} value={eventDate} onChangeText={setEventDate} placeholder="YYYY-MM-DD" placeholderTextColor="#4b5563" />
+
+              <Text style={styles.modalLabel}>Notes</Text>
+              <TextInput style={[styles.modalInput, { minHeight: 80 }]} value={notes} onChangeText={setNotes} placeholder="Set length, equipment..." placeholderTextColor="#4b5563" multiline textAlignVertical="top" />
+
+              <Button label={saving ? 'Sending...' : 'Send Proposal'} onPress={submitDeal} loading={saving} fullWidth color="#10b981" />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Snackbar message={snackbar} visible={!!snackbar} onDismiss={() => setSnackbar('')} type={snackType} />
     </View>
@@ -198,6 +341,23 @@ const styles = StyleSheet.create({
   },
   negotiateText: { color: '#3b82f6', fontSize: 11, fontWeight: '600' },
   menuBtn: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 24 },
+  modalCard: { maxHeight: '88%', backgroundColor: '#12121a', borderRadius: 18, borderWidth: 1, borderColor: '#263241', padding: 18, maxWidth: 540, alignSelf: 'center', width: '100%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  modalTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  closeBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#1f1f2e', alignItems: 'center', justifyContent: 'center' },
+  modalBody: { gap: 10 },
+  modalLabel: { color: '#9ca3af', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
+  modalInput: { backgroundColor: '#0a0a0f', borderWidth: 1, borderColor: '#2d2d3d', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: '#fff', fontSize: 14 },
+  modalChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  modalChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1, borderColor: '#2d2d3d', backgroundColor: '#0a0a0f' },
+  modalChipActive: { borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)' },
+  modalChipText: { color: '#9ca3af', fontSize: 12, fontWeight: '700' },
+  modalChipTextActive: { color: '#10b981' },
+  selectedDj: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, backgroundColor: 'rgba(16,185,129,0.08)', borderWidth: 1, borderColor: '#10b98155', borderRadius: 12 },
+  selectedDjName: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '700' },
+  djRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 10, backgroundColor: '#0a0a0f' },
+  djRowName: { color: '#e5e7eb', fontSize: 13, fontWeight: '600' },
 });
 
 export default VenueDealsScreen;
