@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -50,6 +50,11 @@ export default function EditProfileScreen() {
   });
 
   const isDj = user?.role === 'dj';
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (navTimerRef.current) clearTimeout(navTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (isDj) {
@@ -116,7 +121,7 @@ export default function EditProfileScreen() {
       });
 
       showSnackbar('Profile updated successfully', 'success');
-      setTimeout(() => navigation.goBack(), 1200);
+      navTimerRef.current = setTimeout(() => navigation.goBack(), 1200);
     } catch (err: any) {
       const msg = err?.response?.data?.error ?? 'Failed to update profile';
       showSnackbar(msg, 'error');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -29,12 +29,19 @@ export default function ChangePasswordScreen() {
     message: string;
     type: 'success' | 'error';
   }>({ visible: false, message: '', type: 'success' });
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear pending navigation timer on unmount
+  useEffect(() => () => {
+    if (navTimerRef.current) clearTimeout(navTimerRef.current);
+  }, []);
 
   const showSnackbar = (message: string, type: 'success' | 'error') => {
     setSnackbar({ visible: true, message, type });
   };
 
   const handleSave = async () => {
+    if (saving) return; // re-entrancy guard
     if (!currentPassword || !newPassword || !confirmPassword) {
       showSnackbar('Please fill in all fields', 'error');
       return;
@@ -52,7 +59,7 @@ export default function ChangePasswordScreen() {
     try {
       await changePassword(currentPassword, newPassword);
       showSnackbar('Password changed successfully', 'success');
-      setTimeout(() => navigation.goBack(), 1200);
+      navTimerRef.current = setTimeout(() => navigation.goBack(), 1200);
     } catch (err: any) {
       const msg = err?.response?.data?.error ?? 'Failed to change password';
       showSnackbar(msg, 'error');
