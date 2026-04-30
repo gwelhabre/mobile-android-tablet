@@ -44,19 +44,31 @@ const ProductDetailScreen: React.FC<ProductDetailProps> = ({ productId, productD
   }, [productId, productData]);
 
   const handlePurchase = async () => {
-    if (!product) return;
-    setPurchasing(true);
-    try {
-      await purchaseProduct(product.id);
-      setPurchased(true);
-      setSnackbar('Purchase successful! Check your downloads.');
-      setSnackType('success');
-    } catch (err: any) {
-      setSnackbar(err?.response?.data?.error || err?.response?.data?.message || 'Purchase failed. Check your wallet balance.');
-      setSnackType('error');
-    } finally {
-      setPurchasing(false);
-    }
+    if (!product || purchasing) return;
+    Alert.alert(
+      'Confirm Purchase',
+      `Buy "${product.title}" for $${product.price.toFixed(2)}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Buy Now',
+          onPress: async () => {
+            setPurchasing(true);
+            try {
+              await purchaseProduct(product.id);
+              setPurchased(true);
+              setSnackbar('Purchase successful! Check your downloads.');
+              setSnackType('success');
+            } catch (err: any) {
+              setSnackbar(err?.response?.data?.error || err?.response?.data?.message || 'Purchase failed. Check your wallet balance.');
+              setSnackType('error');
+            } finally {
+              setPurchasing(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (loading) return <LoadingSpinner message="Loading product..." />;
