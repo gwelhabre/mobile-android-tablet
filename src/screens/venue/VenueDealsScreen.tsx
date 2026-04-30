@@ -23,7 +23,7 @@ import EmptyState from '../../components/common/EmptyState';
 import Snackbar from '../../components/common/Snackbar';
 import { getVenueDeals, createVenueDeal } from '../../api/events';
 import { getMyVenues } from '../../api/rankings';
-import { getDJs } from '../../api/dj';
+import { getDJs, getDjDisplayName } from '../../api/dj';
 import { BookingDeal, DJProfile } from '../../types';
 
 const dealStatusColors: Record<string, string> = {
@@ -256,8 +256,8 @@ const VenueDealsScreen: React.FC = () => {
               <Text style={styles.modalLabel}>DJ</Text>
               {selectedDj ? (
                 <View style={styles.selectedDj}>
-                  <Avatar uri={selectedDj.avatarUrl} name={selectedDj.displayName ?? 'DJ'} size={36} />
-                  <Text style={styles.selectedDjName}>{selectedDj.displayName}</Text>
+                  <Avatar uri={selectedDj.avatarUrl} name={getDjDisplayName(selectedDj)} size={36} />
+                  <Text style={styles.selectedDjName}>{getDjDisplayName(selectedDj)}</Text>
                   <TouchableOpacity onPress={() => setSelectedDj(null)}>
                     <MaterialCommunityIcons name="close-circle" size={20} color="#6b7280" />
                   </TouchableOpacity>
@@ -273,8 +273,8 @@ const VenueDealsScreen: React.FC = () => {
                   />
                   {djs.map((dj) => (
                     <TouchableOpacity key={String(dj.id)} style={styles.djRow} onPress={() => { setSelectedDj(dj); setDjs([]); setDjSearch(''); }}>
-                      <Avatar uri={dj.avatarUrl} name={dj.displayName ?? 'DJ'} size={32} />
-                      <Text style={styles.djRowName}>{dj.displayName}</Text>
+                      <Avatar uri={dj.avatarUrl} name={getDjDisplayName(dj)} size={32} />
+                      <Text style={styles.djRowName}>{getDjDisplayName(dj)}</Text>
                     </TouchableOpacity>
                   ))}
                 </>

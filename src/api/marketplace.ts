@@ -66,16 +66,6 @@ export const purchaseProduct = async (productId: string): Promise<MarketplaceOrd
   return 'order' in payload && payload.order ? payload.order : (payload as MarketplaceOrder);
 };
 
-export const getMyOrders = async (): Promise<MarketplaceOrder[]> => {
-  const response = await apiClient.get<MarketplaceOrder[]>('/marketplace/orders');
-  return response.data;
-};
-
-export const getMyListings = async (): Promise<MarketplaceProduct[]> => {
-  const response = await apiClient.get<MarketplaceProduct[]>('/marketplace/my-listings');
-  return response.data;
-};
-
 export const searchProducts = async (query: string): Promise<MarketplaceProduct[]> => {
   const response = await apiClient.get<MarketplaceProduct[]>('/marketplace/products/search', {
     params: { q: query },

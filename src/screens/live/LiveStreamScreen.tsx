@@ -115,7 +115,7 @@ const LiveStreamScreen: React.FC = () => {
       return;
     }
     if (amount > 20) {
-      Alert.alert('Tip limit', 'Private tips are capped at 20 EUR per DJ per stream/event.');
+      Alert.alert('Tip limit', 'Private tips are capped at $20 per DJ per stream/event.');
       return;
     }
     setTipLoading(true);
@@ -299,7 +299,7 @@ const LiveStreamScreen: React.FC = () => {
                 <MaterialCommunityIcons name="close" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.tipSubtitle}>Private tip — capped at 20 EUR per DJ per stream/event.</Text>
+            <Text style={styles.tipSubtitle}>Private tip — capped at $20 per DJ per stream/event.</Text>
             <View style={styles.tipPresets}>
               {TIP_PRESETS.map((p) => {
                 const active = String(p) === tipAmount;
