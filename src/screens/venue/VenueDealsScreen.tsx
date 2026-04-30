@@ -23,7 +23,7 @@ import EmptyState from '../../components/common/EmptyState';
 import Snackbar from '../../components/common/Snackbar';
 import { getVenueDeals, createVenueDeal } from '../../api/events';
 import { getMyVenues } from '../../api/rankings';
-import { getDJs, getDjDisplayName } from '../../api/dj';
+import { searchDJs, getDjDisplayName } from '../../api/dj';
 import { BookingDeal, DJProfile } from '../../types';
 
 const dealStatusColors: Record<string, string> = {
