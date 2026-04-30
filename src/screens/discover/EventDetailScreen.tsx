@@ -314,17 +314,17 @@ const EventDetailScreen: React.FC<EventDetailProps> = ({ eventId, eventData, rou
             style={styles.actionBtn}
           />
         )}
-        {event.status === 'live' && (
+        {event.status === 'live' && event.liveStream?.id ? (
           <Button
             label="Join Stream"
-            onPress={() => {}}
+            onPress={() => (navigation as any).navigate('LiveTab', { screen: 'LiveStream', params: { streamId: event.liveStream.id, djId: event.djId, djName: event.djName } })}
             variant="filled"
             icon="broadcast"
             size="lg"
             color="#ef4444"
             style={styles.actionBtn}
           />
-        )}
+        ) : null}
       </View>
 
       {(event.status === 'upcoming' || event.status === 'live') && (

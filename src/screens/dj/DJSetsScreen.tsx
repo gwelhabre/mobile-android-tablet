@@ -11,6 +11,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -185,7 +187,11 @@ const DJSetsScreen: React.FC = () => {
                   />
                 </View>
                 <View style={[styles.cell, styles.actionsCol]}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => {}} activeOpacity={0.7}>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => Alert.alert('Edit set', 'Editing existing sets is coming soon. For now, delete and republish to change details.')}
+                    activeOpacity={0.7}
+                  >
                     <MaterialCommunityIcons name="pencil" size={18} color="#3b82f6" />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item.id)} activeOpacity={0.7}>
@@ -206,7 +212,10 @@ const DJSetsScreen: React.FC = () => {
       />
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>New Set</Text>
@@ -233,7 +242,7 @@ const DJSetsScreen: React.FC = () => {
               <Button label={saving ? 'Publishing...' : 'Publish Set'} onPress={submitSet} loading={saving} fullWidth />
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Snackbar message={snackbar} visible={!!snackbar} onDismiss={() => setSnackbar('')} type={snackType} />

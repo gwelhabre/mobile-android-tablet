@@ -214,7 +214,7 @@ const DJDashboardScreen: React.FC = () => {
       <FAB
         icon="broadcast"
         label="Go Live"
-        onPress={() => {}}
+        onPress={() => (navigation as any).navigate('DJStack', { screen: 'DJBroadcast' })}
         color="#ef4444"
       />
 

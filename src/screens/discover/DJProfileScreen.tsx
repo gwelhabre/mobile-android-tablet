@@ -223,7 +223,7 @@ const DJProfileDetail: React.FC<DJProfileDetailProps> = ({ djId, djData }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Digital Sets</Text>
           {dj.sets.slice(0, 4).map((s) => (
-            <Card key={s.id} style={styles.setCard} outlined onPress={() => {}}>
+            <Card key={s.id} style={styles.setCard} outlined>
               <View style={styles.setRow}>
                 <View style={styles.setIcon}>
                   <MaterialCommunityIcons name="music-note" size={18} color="#a855f7" />

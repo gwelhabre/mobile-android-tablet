@@ -60,7 +60,7 @@ const SearchScreen: React.FC = () => {
   const totalResults = djs.length + events.length + venues.length;
 
   const renderVenueItem = ({ item }: { item: Venue }) => (
-    <Card style={styles.venueCard} outlined onPress={() => {}}>
+    <Card style={styles.venueCard} outlined onPress={() => (navigation as any).navigate('VenueDetail', { venueId: String(item.id) })}>
       <MaterialCommunityIcons name="office-building" size={20} color="#a855f7" />
       <View style={styles.venueInfo}>
         <Text style={styles.venueName}>{item.name}</Text>
@@ -163,7 +163,7 @@ const SearchScreen: React.FC = () => {
                   data={djs}
                   keyExtractor={(i) => i.id}
                   renderItem={({ item }) => (
-                    <DJCard dj={item} onPress={() => {}} compact />
+                    <DJCard dj={item} onPress={() => (navigation as any).navigate('DJProfile', { djId: String(item.id) })} compact />
                   )}
                   scrollEnabled={false}
                 />
@@ -180,7 +180,7 @@ const SearchScreen: React.FC = () => {
                   data={events}
                   keyExtractor={(i) => i.id}
                   renderItem={({ item }) => (
-                    <EventCard event={item} onPress={() => {}} compact />
+                    <EventCard event={item} onPress={() => (navigation as any).navigate('EventDetail', { eventId: String(item.id) })} compact />
                   )}
                   scrollEnabled={false}
                 />

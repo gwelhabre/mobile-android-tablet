@@ -168,7 +168,7 @@ const ProductDetailScreen: React.FC<ProductDetailProps> = ({ productId, productD
           <Text style={styles.purchasedText}>Purchased! Access in your Downloads</Text>
           <Button
             label="Download"
-            onPress={() => {}}
+            onPress={() => Alert.alert('Download', 'Your download link will be sent to your email and visible in My Orders.')}
             icon="download"
             variant="tonal"
             color="#10b981"

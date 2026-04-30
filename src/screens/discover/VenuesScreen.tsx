@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
@@ -141,7 +142,14 @@ const VenueDetailPane: React.FC<{
       )}
     </View>
 
-    <Button label="Propose Booking" onPress={() => {}} icon="calendar-plus" fullWidth color="#10b981" style={{ marginTop: 12 }} />
+    <Button
+      label="Propose Booking"
+      onPress={() => Alert.alert('Propose a booking', 'To send a booking proposal, switch to the Venue Manager dashboard and use the "Propose Deal" action.')}
+      icon="calendar-plus"
+      fullWidth
+      color="#10b981"
+      style={{ marginTop: 12 }}
+    />
   </ScrollView>
   );
 };
