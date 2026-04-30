@@ -24,3 +24,12 @@ export const getUnreadCount = async (): Promise<{ count: number }> => {
 export const deleteNotification = async (notificationId: string): Promise<void> => {
   await apiClient.delete(`/notifications/${notificationId}`);
 };
+
+/** Aggregated object export — convenience for callers that prefer namespaced access. */
+export const notificationsApi = {
+  list: getNotifications,
+  markRead: markNotificationRead,
+  markAllRead,
+  unreadCount: getUnreadCount,
+  delete: deleteNotification,
+};

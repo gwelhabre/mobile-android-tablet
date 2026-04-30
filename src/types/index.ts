@@ -185,11 +185,13 @@ export interface MarketplaceOrder {
 
 export interface Notification {
   id: string;
-  userId: string;
-  type: 'gift' | 'follow' | 'booking' | 'deal' | 'competition' | 'system' | 'live' | 'ranking';
+  userId?: string;
+  type: 'gift' | 'follow' | 'booking' | 'deal' | 'competition' | 'system' | 'live' | 'ranking' | 'wallet' | 'like' | 'event' | 'comment';
   title: string;
   message: string;
-  isRead: boolean;
+  /** Use either `read` or `isRead`. Backend may send either. */
+  read?: boolean;
+  isRead?: boolean;
   createdAt: string;
   actionUrl?: string;
   metadata?: Record<string, unknown>;
