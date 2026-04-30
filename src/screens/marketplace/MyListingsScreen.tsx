@@ -51,6 +51,7 @@ const MyListingsScreen: React.FC = () => {
   };
 
   const submit = async () => {
+    if (saving) return; // re-entrancy guard
     const priceNum = Number(price);
     if (!title.trim() || !Number.isFinite(priceNum) || priceNum < 0) {
       Alert.alert('Invalid input', 'Title and a non-negative price are required.');

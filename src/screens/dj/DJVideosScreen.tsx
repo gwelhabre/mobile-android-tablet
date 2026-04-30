@@ -50,6 +50,7 @@ const DJVideosScreen: React.FC = () => {
   };
 
   const submit = async () => {
+    if (saving) return; // re-entrancy guard
     if (!title.trim() || !videoUrl.trim()) {
       Alert.alert('Missing fields', 'Title and video URL are required.');
       return;

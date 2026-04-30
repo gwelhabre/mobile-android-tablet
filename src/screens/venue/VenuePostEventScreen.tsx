@@ -17,6 +17,7 @@ import { createEvent } from '../../api/events';
 import { getMyVenues } from '../../api/rankings';
 import { getDJs } from '../../api/dj';
 import { DJProfile } from '../../types';
+import { isValidDateString, isValidTimeString } from '../../utils/validators';
 import Header from '../../components/common/Header';
 
 interface Venue {
@@ -63,17 +64,23 @@ const VenuePostEventScreen: React.FC = () => {
       setDjResults([]);
       return;
     }
+    let cancelled = false;
     debounceRef.current = setTimeout(async () => {
+      if (cancelled) return;
       setDjSearching(true);
       try {
         const data = await getDJs(djQuery.trim());
-        setDjResults(data.slice(0, 8));
+        if (!cancelled) setDjResults(data.slice(0, 8));
       } catch {
-        setDjResults([]);
+        if (!cancelled) setDjResults([]);
       } finally {
-        setDjSearching(false);
+        if (!cancelled) setDjSearching(false);
       }
     }, 350);
+    return () => {
+      cancelled = true;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [djQuery]);
 
   const buildIso = (date: string, time: string): string | undefined => {
@@ -83,10 +90,15 @@ const VenuePostEventScreen: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (submitting) return; // re-entrancy guard
     if (!title.trim()) { Alert.alert('Error', 'Event title is required.'); return; }
     if (!selectedDj) { Alert.alert('Error', 'Please select a DJ.'); return; }
     if (!selectedVenueId) { Alert.alert('Error', 'No venue found. Make sure you have a venue profile.'); return; }
     if (!startDate.trim()) { Alert.alert('Error', 'Start date is required (YYYY-MM-DD).'); return; }
+    if (!isValidDateString(startDate.trim())) { Alert.alert('Invalid date', 'Use YYYY-MM-DD format with a real date.'); return; }
+    if (startTime.trim() && !isValidTimeString(startTime.trim())) { Alert.alert('Invalid time', 'Use HH:MM (24-hour) format.'); return; }
+    if (endDate.trim() && !isValidDateString(endDate.trim())) { Alert.alert('Invalid end date', 'Use YYYY-MM-DD format with a real date.'); return; }
+    if (endTime.trim() && !isValidTimeString(endTime.trim())) { Alert.alert('Invalid end time', 'Use HH:MM (24-hour) format.'); return; }
 
     const startIso = buildIso(startDate, startTime);
     if (!startIso) { Alert.alert('Error', 'Invalid start date.'); return; }

@@ -126,6 +126,7 @@ const PlanYourEventScreen: React.FC = () => {
   };
 
   const confirmAndSend = async () => {
+    if (submitting) return; // re-entrancy guard
     if (!selectedPack) return;
     setSubmitting(true);
     try {
