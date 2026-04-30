@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { createEvent } from '../../api/events';
 import { getMyVenues } from '../../api/rankings';
-import { getDJs } from '../../api/dj';
+import { searchDJs } from '../../api/dj';
 import { DJProfile } from '../../types';
 import { isValidDateString, isValidTimeString } from '../../utils/validators';
 import Header from '../../components/common/Header';
@@ -69,7 +69,7 @@ const VenuePostEventScreen: React.FC = () => {
       if (cancelled) return;
       setDjSearching(true);
       try {
-        const data = await getDJs(djQuery.trim());
+        const data = await searchDJs(djQuery.trim());
         if (!cancelled) setDjResults(data.slice(0, 8));
       } catch {
         if (!cancelled) setDjResults([]);

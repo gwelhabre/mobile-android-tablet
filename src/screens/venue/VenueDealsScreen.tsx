@@ -64,7 +64,7 @@ const VenueDealsScreen: React.FC = () => {
     setDjSearch(q);
     if (q.trim().length < 2) { setDjs([]); return; }
     try {
-      const data = await getDJs(q.trim());
+      const data = await searchDJs(q.trim());
       setDjs(data.slice(0, 10));
     } catch {
       setDjs([]);
