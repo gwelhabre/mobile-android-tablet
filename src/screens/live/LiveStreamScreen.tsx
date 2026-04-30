@@ -22,7 +22,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Snackbar from '../../components/common/Snackbar';
 import { getStreamById } from '../../api/rankings';
 import { getGiftCatalog } from '../../api/gifts';
-import { sendTip } from '../../api/tips';
+import { sendTip, SUPPORTED_TIP_CURRENCIES, TIP_CURRENCY_SYMBOLS, TipCurrency } from '../../api/tips';
 import { LiveStream, ChatMessage, GiftCatalogItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
@@ -60,6 +60,7 @@ const LiveStreamScreen: React.FC = () => {
   const [showGifts, setShowGifts] = useState(false);
   const [tipModal, setTipModal] = useState(false);
   const [tipAmount, setTipAmount] = useState('5');
+  const [tipCurrency, setTipCurrency] = useState<TipCurrency>('USD');
   const [tipMessage, setTipMessage] = useState('');
   const [tipLoading, setTipLoading] = useState(false);
   const [snackbar, setSnackbar] = useState('');
@@ -108,6 +109,7 @@ const LiveStreamScreen: React.FC = () => {
   }, [chatInput, user, streamId]);
 
   const handleTip = useCallback(async () => {
+    if (tipLoading) return; // re-entrancy guard
     if (!stream?.djId) return;
     const amount = Number(tipAmount.replace(',', '.'));
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -115,7 +117,8 @@ const LiveStreamScreen: React.FC = () => {
       return;
     }
     if (amount > 20) {
-      Alert.alert('Tip limit', 'Private tips are capped at $20 per DJ per stream/event.');
+      const sym = TIP_CURRENCY_SYMBOLS[tipCurrency] ?? tipCurrency;
+      Alert.alert('Tip limit', `Private tips are capped at ${sym}20 (${tipCurrency}) per DJ per stream/event.`);
       return;
     }
     setTipLoading(true);
@@ -124,6 +127,7 @@ const LiveStreamScreen: React.FC = () => {
         djId: stream.djId,
         amount,
         liveId: stream.id,
+        currency: tipCurrency,
         message: tipMessage.trim() || undefined,
       });
       setTipModal(false);
@@ -136,7 +140,7 @@ const LiveStreamScreen: React.FC = () => {
     } finally {
       setTipLoading(false);
     }
-  }, [stream, tipAmount, tipMessage]);
+  }, [stream, tipAmount, tipMessage, tipCurrency, tipLoading]);
 
   const sendGift = useCallback((gift: GiftCatalogItem) => {
     if (!user) return;
@@ -299,7 +303,22 @@ const LiveStreamScreen: React.FC = () => {
                 <MaterialCommunityIcons name="close" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.tipSubtitle}>Private tip — capped at $20 per DJ per stream/event.</Text>
+            <Text style={styles.tipSubtitle}>Private tip — capped at 20 {tipCurrency} per DJ per stream/event.</Text>
+            <Text style={styles.currencyLabel}>Currency</Text>
+            <View style={styles.currencyRow}>
+              {SUPPORTED_TIP_CURRENCIES.map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.currencyChip, tipCurrency === c && styles.currencyChipActive]}
+                  onPress={() => setTipCurrency(c)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.currencyChipText, tipCurrency === c && styles.currencyChipTextActive]}>
+                    {TIP_CURRENCY_SYMBOLS[c]} {c}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <View style={styles.tipPresets}>
               {TIP_PRESETS.map((p) => {
                 const active = String(p) === tipAmount;
@@ -310,7 +329,7 @@ const LiveStreamScreen: React.FC = () => {
                     onPress={() => setTipAmount(String(p))}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.tipPresetText, active && styles.tipPresetTextActive]}>{p}€</Text>
+                    <Text style={[styles.tipPresetText, active && styles.tipPresetTextActive]}>{TIP_CURRENCY_SYMBOLS[tipCurrency]}{p}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -320,7 +339,7 @@ const LiveStreamScreen: React.FC = () => {
               value={tipAmount}
               onChangeText={setTipAmount}
               keyboardType="decimal-pad"
-              placeholder="Amount"
+              placeholder={`Amount in ${tipCurrency}`}
               placeholderTextColor="#4b5563"
             />
             <TextInput
@@ -422,6 +441,12 @@ const styles = StyleSheet.create({
   tipPresetActive: { borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)' },
   tipPresetText: { color: '#9ca3af', fontSize: 14, fontWeight: '700' },
   tipPresetTextActive: { color: '#10b981' },
+  currencyLabel: { color: '#9ca3af', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
+  currencyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  currencyChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: '#1e1e2e', backgroundColor: '#1a1a2e' },
+  currencyChipActive: { borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)' },
+  currencyChipText: { color: '#9ca3af', fontSize: 12, fontWeight: '700' },
+  currencyChipTextActive: { color: '#10b981' },
   tipInput: { backgroundColor: '#0a0a0f', borderWidth: 1, borderColor: '#1e1e2e', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, color: '#fff', fontSize: 14 },
 });
 
