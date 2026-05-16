@@ -17,22 +17,25 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import Snackbar from '../../components/common/Snackbar';
 import { requestPayout, getPayoutRequests, getWallet } from '../../api/wallet';
-import { PayoutRequest } from '../../types';
+import { PayoutRequest, WhishStatus } from '../../types';
 
-const METHOD_OPTIONS = ['bank_transfer', 'paypal', 'crypto', 'check'];
 const statusColors: Record<string, string> = {
   pending: '#f59e0b', approved: '#3b82f6', processing: '#a855f7',
-  completed: '#10b981', rejected: '#ef4444',
+  completed: '#10b981', paid: '#10b981', rejected: '#ef4444',
 };
 
+function maskPhone(phone: string): string {
+  if (phone.length <= 5) return phone;
+  return phone.slice(0, 3) + '••••' + phone.slice(-3);
+}
+
 const PayoutScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState('bank_transfer');
-  const [accountDetails, setAccountDetails] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
+  const [whish, setWhish] = useState<WhishStatus | null>(null);
   const [loadingPayouts, setLoadingPayouts] = useState(true);
   const [availableBalance, setAvailableBalance] = useState(0);
   const [snackbar, setSnackbar] = useState('');
@@ -45,7 +48,8 @@ const PayoutScreen: React.FC = () => {
         getWallet(),
       ]);
       setPayouts(payoutData);
-      setAvailableBalance(walletData.balance);
+      setWhish(walletData.whish);
+      setAvailableBalance(walletData.wallet?.balance ?? 0);
     } catch {
       setSnackbar('Failed to load data');
       setSnackType('error');
@@ -56,10 +60,13 @@ const PayoutScreen: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const verified = Boolean(whish?.whishPhoneVerifiedAt);
+  const maskedPhone = whish?.whishPhone ? maskPhone(whish.whishPhone) : null;
+
   const handleSubmit = async () => {
     const amountNum = parseFloat(amount);
-    if (!amountNum || amountNum <= 0) {
-      setSnackbar('Enter a valid amount');
+    if (!amountNum || amountNum < 20) {
+      setSnackbar('Minimum payout is $20');
       setSnackType('error');
       return;
     }
@@ -70,10 +77,9 @@ const PayoutScreen: React.FC = () => {
     }
     setLoading(true);
     try {
-      const newPayout = await requestPayout(amountNum, method, accountDetails, notes);
+      const newPayout = await requestPayout(amountNum, notes);
       setPayouts((prev) => [newPayout, ...prev]);
       setAmount('');
-      setAccountDetails('');
       setNotes('');
       setSnackbar('Payout request submitted!');
       setSnackType('success');
@@ -88,10 +94,37 @@ const PayoutScreen: React.FC = () => {
   const leftContent = (
     <View style={styles.formContainer}>
       <Text style={styles.formTitle}>Request Payout</Text>
+
       <View style={styles.balanceInfo}>
         <MaterialCommunityIcons name="wallet" size={18} color="#10b981" />
-        <Text style={styles.balanceText}>Available: <Text style={styles.balanceAmount}>${availableBalance.toFixed(2)}</Text></Text>
+        <Text style={styles.balanceText}>
+          Available: <Text style={styles.balanceAmount}>${availableBalance.toFixed(2)}</Text>
+        </Text>
       </View>
+
+      {!verified && (
+        <TouchableOpacity style={styles.setupCard} onPress={() => navigation.navigate('WhishSetup')}>
+          <MaterialCommunityIcons name="cellphone-key" size={20} color="#fbbf24" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.setupTitle}>Connect your Whish account</Text>
+            <Text style={styles.setupSub}>Verify a Whish number to receive payouts.</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color="#fbbf24" />
+        </TouchableOpacity>
+      )}
+
+      {verified && maskedPhone && (
+        <TouchableOpacity style={styles.verifiedCard} onPress={() => navigation.navigate('WhishSetup')}>
+          <MaterialCommunityIcons name="shield-check" size={20} color="#10b981" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.verifiedTitle}>Whish verified</Text>
+            <Text style={styles.verifiedSub}>
+              Payouts go to {maskedPhone}{whish?.whishDisplayName ? ` · ${whish.whishDisplayName}` : ''}
+            </Text>
+          </View>
+          <Text style={styles.changeLink}>Change</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Amount (USD)</Text>
@@ -104,49 +137,20 @@ const PayoutScreen: React.FC = () => {
             keyboardType="decimal-pad"
             value={amount}
             onChangeText={setAmount}
+            editable={verified}
           />
         </View>
-      </View>
-
-      <View style={styles.field}>
-        <Text style={styles.fieldLabel}>Payout Method</Text>
-        <View style={styles.methodOptions}>
-          {METHOD_OPTIONS.map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.methodOpt, method === m && styles.methodOptActive]}
-              onPress={() => setMethod(m)}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.methodOptText, method === m && styles.methodOptTextActive]}>
-                {m.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.field}>
-        <Text style={styles.fieldLabel}>Account Details</Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="Account number, email, or address..."
-          placeholderTextColor="#4b5563"
-          multiline
-          numberOfLines={3}
-          value={accountDetails}
-          onChangeText={setAccountDetails}
-        />
       </View>
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Notes (optional)</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="Additional information..."
+          placeholder="Any context for our team..."
           placeholderTextColor="#4b5563"
           value={notes}
           onChangeText={setNotes}
+          editable={verified}
         />
       </View>
 
@@ -154,6 +158,7 @@ const PayoutScreen: React.FC = () => {
         label="Submit Payout Request"
         onPress={handleSubmit}
         loading={loading}
+        disabled={!verified}
         fullWidth
         size="lg"
         icon="bank-transfer-out"
@@ -182,7 +187,7 @@ const PayoutScreen: React.FC = () => {
         renderItem={({ item }) => (
           <View style={styles.historyRow}>
             <Text style={styles.historyCell}>
-              {new Date(item.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              {new Date(item.requestedAt ?? item.createdAt ?? Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </Text>
             <Text style={[styles.historyCell, { color: '#10b981', fontWeight: '600' }]}>
               ${item.amount.toFixed(2)}
@@ -205,7 +210,7 @@ const PayoutScreen: React.FC = () => {
     <View style={styles.root}>
       <PageHeader
         title="Payout"
-        subtitle="Request earnings withdrawal"
+        subtitle="Request earnings withdrawal via Whish"
         showBack
         onBack={() => navigation.goBack()}
       />
@@ -221,10 +226,26 @@ const styles = StyleSheet.create({
   formTitle: { color: '#f3f4f6', fontSize: 20, fontWeight: '700' },
   balanceInfo: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#064e3b30', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#10b98130',
+    backgroundColor: '#064e3b30', borderRadius: 10, padding: 10,
+    borderWidth: 1, borderColor: '#10b98130',
   },
   balanceText: { color: '#9ca3af', fontSize: 13 },
   balanceAmount: { color: '#10b981', fontWeight: '700', fontSize: 15 },
+  setupCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(251,191,36,0.08)', borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: 'rgba(251,191,36,0.3)',
+  },
+  setupTitle: { color: '#fde68a', fontSize: 13, fontWeight: '700' },
+  setupSub: { color: '#9ca3af', fontSize: 12, marginTop: 2 },
+  verifiedCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(16,185,129,0.08)', borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)',
+  },
+  verifiedTitle: { color: '#bbf7d0', fontSize: 13, fontWeight: '700' },
+  verifiedSub: { color: '#9ca3af', fontSize: 12, marginTop: 2 },
+  changeLink: { color: '#9ca3af', fontSize: 12 },
   field: { gap: 6 },
   fieldLabel: { color: '#9ca3af', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
   inputWrap: {
@@ -233,18 +254,6 @@ const styles = StyleSheet.create({
   },
   currencySign: { color: '#6b7280', fontSize: 18, fontWeight: '600', marginRight: 6 },
   amountInput: { flex: 1, color: '#f3f4f6', fontSize: 20, fontWeight: '600', paddingVertical: 13 },
-  methodOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  methodOpt: {
-    paddingVertical: 9, paddingHorizontal: 16, borderRadius: 10,
-    backgroundColor: '#1a1a2e', borderWidth: 1.5, borderColor: '#1e1e2e',
-  },
-  methodOptActive: { borderColor: '#3b82f6', backgroundColor: '#1a2540' },
-  methodOptText: { color: '#6b7280', fontSize: 13, fontWeight: '500' },
-  methodOptTextActive: { color: '#3b82f6', fontWeight: '600' },
-  textArea: {
-    backgroundColor: '#0a0a0f', borderRadius: 10, borderWidth: 1.5, borderColor: '#1e1e2e',
-    color: '#f3f4f6', fontSize: 14, padding: 12, minHeight: 80, textAlignVertical: 'top',
-  },
   textInput: {
     backgroundColor: '#0a0a0f', borderRadius: 10, borderWidth: 1.5,
     borderColor: '#1e1e2e', color: '#f3f4f6', fontSize: 14,

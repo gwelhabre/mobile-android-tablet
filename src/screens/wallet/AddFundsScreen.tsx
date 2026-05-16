@@ -1,172 +1,134 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import PageHeader from '../../components/layout/PageHeader';
 import Button from '../../components/common/Button';
 import Snackbar from '../../components/common/Snackbar';
-import { addFunds } from '../../api/wallet';
-
-const PRESET_AMOUNTS = [10, 25, 50, 100, 200, 500];
-const PAYMENT_METHODS = [
-  { id: 'card', label: 'Credit/Debit Card', icon: 'credit-card' },
-  { id: 'paypal', label: 'PayPal', icon: 'paypal' },
-  { id: 'crypto', label: 'Cryptocurrency', icon: 'bitcoin' },
-];
+import { getRidesPackages, createCheckout } from '../../api/wallet';
+import { RidesPackage } from '../../types';
 
 const AddFundsScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [amount, setAmount] = useState('');
-  const [customAmount, setCustomAmount] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState('card');
-  const [loading, setLoading] = useState(false);
+  const [packages, setPackages] = useState<RidesPackage[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loadingPackages, setLoadingPackages] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState('');
   const [snackType, setSnackType] = useState<'default' | 'success' | 'error'>('default');
 
-  const finalAmount = amount ? parseFloat(amount) : customAmount ? parseFloat(customAmount) : 0;
+  useEffect(() => {
+    getRidesPackages()
+      .then((items) => {
+        setPackages(items);
+        if (items.length) setSelectedId(items[0].id);
+      })
+      .catch(() => {
+        setSnackbar('Could not load Rides packages.');
+        setSnackType('error');
+      })
+      .finally(() => setLoadingPackages(false));
+  }, []);
 
-  const handleAddFunds = async () => {
-    if (!finalAmount || finalAmount <= 0) {
-      setSnackbar('Please select or enter a valid amount');
-      setSnackType('error');
-      return;
-    }
-    setLoading(true);
+  const selected = packages.find((p) => p.id === selectedId) ?? null;
+
+  const handleCheckout = async () => {
+    if (!selected) return;
+    setSubmitting(true);
     try {
-      await addFunds(finalAmount, selectedMethod);
-      setSnackbar(`$${finalAmount.toFixed(2)} added to your wallet!`);
-      setSnackType('success');
-      setTimeout(() => navigation.goBack(), 2000);
+      const { url } = await createCheckout(selected.id);
+      const returnUrl = Linking.createURL('wallet/topup-complete');
+      const result = await WebBrowser.openAuthSessionAsync(url, returnUrl);
+      if (result.type === 'success') {
+        setSnackbar(`${selected.ridesAmount} Rides will appear once Whish confirms.`);
+        setSnackType('success');
+        setTimeout(() => navigation.goBack(), 2000);
+      }
     } catch {
-      setSnackbar('Payment failed. Please try again.');
+      setSnackbar('Could not start Whish checkout. Try again.');
       setSnackType('error');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.root}>
       <PageHeader
         title="Add Funds"
-        subtitle="Top up your Disk Rider wallet"
+        subtitle="Top up your Disk Rider wallet via Whish"
         showBack
         onBack={() => navigation.goBack()}
       />
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.centerCard}>
-          {/* Amount Selection */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select Amount</Text>
-            <View style={styles.amountGrid}>
-              {PRESET_AMOUNTS.map((a) => (
-                <TouchableOpacity
-                  key={a}
-                  style={[styles.amountChip, amount === String(a) && styles.amountChipActive]}
-                  onPress={() => { setAmount(String(a)); setCustomAmount(''); }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.amountChipText, amount === String(a) && styles.amountChipTextActive]}>
-                    ${a}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.customRow}>
-              <Text style={styles.customLabel}>Or enter custom amount</Text>
-              <View style={styles.customInput}>
-                <Text style={styles.currencySign}>$</Text>
-                <TextInput
-                  style={styles.customInputField}
-                  placeholder="0.00"
-                  placeholderTextColor="#4b5563"
-                  keyboardType="decimal-pad"
-                  value={customAmount}
-                  onChangeText={(v) => { setCustomAmount(v); setAmount(''); }}
-                />
+            <Text style={styles.sectionTitle}>Pick a Rides Package</Text>
+            {loadingPackages ? (
+              <ActivityIndicator color="#a855f7" />
+            ) : packages.length === 0 ? (
+              <Text style={styles.empty}>No packages available.</Text>
+            ) : (
+              <View style={styles.packageList}>
+                {packages.map((pkg) => {
+                  const active = pkg.id === selectedId;
+                  return (
+                    <TouchableOpacity
+                      key={pkg.id}
+                      style={[styles.pkgRow, active && styles.pkgRowActive]}
+                      onPress={() => setSelectedId(pkg.id)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.pkgLeft}>
+                        <MaterialCommunityIcons
+                          name="diamond-stone"
+                          size={20}
+                          color={active ? '#fbbf24' : '#6b7280'}
+                        />
+                        <Text style={[styles.pkgAmount, active && styles.pkgAmountActive]}>
+                          {pkg.ridesAmount.toLocaleString()} Rides
+                        </Text>
+                      </View>
+                      <Text style={[styles.pkgPrice, active && styles.pkgPriceActive]}>
+                        ${pkg.priceUsd.toFixed(2)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            </View>
+            )}
           </View>
-
-          {/* Payment Method */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Payment Method</Text>
-            <View style={styles.methodList}>
-              {PAYMENT_METHODS.map((m) => (
-                <TouchableOpacity
-                  key={m.id}
-                  style={[styles.methodItem, selectedMethod === m.id && styles.methodItemActive]}
-                  onPress={() => setSelectedMethod(m.id)}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.methodIcon, selectedMethod === m.id && styles.methodIconActive]}>
-                    <MaterialCommunityIcons
-                      name={m.icon as any}
-                      size={22}
-                      color={selectedMethod === m.id ? '#a855f7' : '#6b7280'}
-                    />
-                  </View>
-                  <Text style={[styles.methodLabel, selectedMethod === m.id && styles.methodLabelActive]}>
-                    {m.label}
-                  </Text>
-                  <View style={[styles.radioOuter, selectedMethod === m.id && styles.radioOuterActive]}>
-                    {selectedMethod === m.id && <View style={styles.radioInner} />}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Summary */}
-          {finalAmount > 0 && (
-            <View style={styles.summary}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Amount</Text>
-                <Text style={styles.summaryValue}>${finalAmount.toFixed(2)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Processing fee</Text>
-                <Text style={styles.summaryValue}>$0.00</Text>
-              </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryTotal}>Total charged</Text>
-                <Text style={[styles.summaryValue, styles.summaryTotal]}>
-                  ${finalAmount.toFixed(2)}
-                </Text>
-              </View>
-            </View>
-          )}
 
           <Button
-            label={`Add $${finalAmount > 0 ? finalAmount.toFixed(2) : '0.00'} to Wallet`}
-            onPress={handleAddFunds}
-            loading={loading}
-            disabled={finalAmount <= 0}
+            label={selected ? `Continue to Whish — $${selected.priceUsd.toFixed(2)}` : 'Pick a package'}
+            onPress={handleCheckout}
+            loading={submitting}
+            disabled={!selected}
             fullWidth
             size="lg"
             icon="wallet-plus"
             style={styles.addBtn}
           />
+
+          <View style={styles.notice}>
+            <MaterialCommunityIcons name="lock" size={14} color="#93c5fd" />
+            <Text style={styles.noticeText}>Payment is processed securely by Whish.</Text>
+          </View>
         </View>
       </ScrollView>
 
       <Snackbar message={snackbar} visible={!!snackbar} onDismiss={() => setSnackbar('')} type={snackType} />
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
@@ -176,57 +138,30 @@ const styles = StyleSheet.create({
   centerCard: {
     width: '100%', maxWidth: 560,
     backgroundColor: '#12121a', borderRadius: 20, padding: 28,
-    borderWidth: 1, borderColor: '#1e1e2e', gap: 24,
+    borderWidth: 1, borderColor: '#1e1e2e', gap: 20,
   },
   section: { gap: 14 },
   sectionTitle: { color: '#9ca3af', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  amountGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  amountChip: {
-    paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12,
-    backgroundColor: '#1a1a2e', borderWidth: 1.5, borderColor: '#1e1e2e', minWidth: 80,
+  empty: { color: '#6b7280', fontSize: 14, textAlign: 'center', paddingVertical: 20 },
+  packageList: { gap: 10 },
+  pkgRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#0a0a0f', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+    borderWidth: 1.5, borderColor: '#1e1e2e',
   },
-  amountChipActive: { borderColor: '#a855f7', backgroundColor: '#1a0f2e' },
-  amountChipText: { color: '#9ca3af', fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  amountChipTextActive: { color: '#a855f7' },
-  customRow: { gap: 8 },
-  customLabel: { color: '#6b7280', fontSize: 13 },
-  customInput: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a0a0f',
-    borderRadius: 12, borderWidth: 1.5, borderColor: '#1e1e2e',
-    paddingHorizontal: 14,
-  },
-  currencySign: { color: '#6b7280', fontSize: 18, fontWeight: '600', marginRight: 4 },
-  customInputField: { flex: 1, color: '#f3f4f6', fontSize: 20, paddingVertical: 14, fontWeight: '600' },
-  methodList: { gap: 8 },
-  methodItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#0a0a0f', borderRadius: 12, borderWidth: 1.5,
-    borderColor: '#1e1e2e', padding: 14,
-  },
-  methodItemActive: { borderColor: '#a855f7', backgroundColor: '#0f0a1a' },
-  methodIcon: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: '#1a1a2e', justifyContent: 'center', alignItems: 'center',
-  },
-  methodIconActive: { backgroundColor: '#1a0f2e' },
-  methodLabel: { color: '#9ca3af', fontSize: 15, fontWeight: '500', flex: 1 },
-  methodLabelActive: { color: '#e5e7eb' },
-  radioOuter: {
-    width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-    borderColor: '#374151', justifyContent: 'center', alignItems: 'center',
-  },
-  radioOuterActive: { borderColor: '#a855f7' },
-  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#a855f7' },
-  summary: {
-    backgroundColor: '#0a0a0f', borderRadius: 12,
-    padding: 16, borderWidth: 1, borderColor: '#1e1e2e', gap: 8,
-  },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryLabel: { color: '#6b7280', fontSize: 14 },
-  summaryValue: { color: '#f3f4f6', fontSize: 14, fontWeight: '600' },
-  summaryDivider: { height: 1, backgroundColor: '#1e1e2e' },
-  summaryTotal: { fontWeight: '700', color: '#10b981', fontSize: 16 },
+  pkgRowActive: { borderColor: '#a855f7', backgroundColor: '#1a0f2e' },
+  pkgLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pkgAmount: { color: '#9ca3af', fontSize: 16, fontWeight: '700' },
+  pkgAmountActive: { color: '#f3f4f6' },
+  pkgPrice: { color: '#9ca3af', fontSize: 14, fontWeight: '600' },
+  pkgPriceActive: { color: '#c4b5fd' },
   addBtn: { borderRadius: 14 },
+  notice: {
+    flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: 10,
+    borderWidth: 1, borderColor: '#3b82f650', padding: 10,
+  },
+  noticeText: { color: '#93c5fd', fontSize: 13 },
 });
 
 export default AddFundsScreen;

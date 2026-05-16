@@ -51,7 +51,7 @@ const WalletScreen: React.FC = () => {
         getWallet(),
         getTransactions(),
       ]);
-      setWallet(walletData);
+      setWallet(walletData.wallet);
       setTransactions(txData);
     } catch {
       setSnackbar('Failed to load wallet data');

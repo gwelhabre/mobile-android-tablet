@@ -2,6 +2,7 @@
   "expo": {
     "name": "Disk Rider Live",
     "slug": "disk-rider-live-android-tablet",
+    "scheme": "diskrider",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",

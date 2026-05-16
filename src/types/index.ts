@@ -343,16 +343,37 @@ export interface GiftShowcase {
 
 export interface PayoutRequest {
   id: string;
-  userId: string;
+  userId?: string;
   amount: number;
-  currency: string;
-  method: 'bank_transfer' | 'paypal' | 'crypto' | 'check';
+  currency?: string;
+  method: string;
   accountDetails?: string;
   notes?: string;
-  status: 'pending' | 'approved' | 'processing' | 'completed' | 'rejected';
-  requestedAt: string;
+  status: 'pending' | 'approved' | 'processing' | 'completed' | 'rejected' | 'paid';
+  requestedAt?: string;
+  createdAt?: string;
   processedAt?: string;
   rejectionReason?: string;
+}
+
+export interface RidesPackage {
+  id: string;
+  ridesAmount: number;
+  priceUsd: number;
+  platform: string;
+  isActive: boolean;
+}
+
+export interface WhishStatus {
+  whishPhone: string | null;
+  whishPhoneVerifiedAt: string | null;
+  whishDisplayName: string | null;
+}
+
+export interface WhishVerificationStart {
+  verificationId: string;
+  displayName?: string | null;
+  expiresAt: string;
 }
 
 export interface DigitalSet {
