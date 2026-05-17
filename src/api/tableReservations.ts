@@ -23,3 +23,10 @@ export const splitAndPayTableReservation = async (id: string): Promise<TableRese
   const response = await apiClient.post<{ reservation: TableReservation }>(`/table-reservations/${id}/split-pay`);
   return response.data.reservation;
 };
+
+export const updateReserverCoveredCount = async (id: string, count: number): Promise<TableReservation> => {
+  const response = await apiClient.patch<{ reservation: TableReservation }>(`/table-reservations/${id}`, {
+    reserverCoveredCount: count,
+  });
+  return response.data.reservation;
+};
