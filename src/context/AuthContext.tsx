@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { User } from '../types';
 import { login as apiLogin, register as apiRegister, LoginPayload, RegisterPayload } from '../api/auth';
 
@@ -24,8 +24,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const storedToken = await AsyncStorage.getItem('authToken');
-        const storedUser = await AsyncStorage.getItem('currentUser');
+        const storedToken = await SecureStore.getItemAsync('authToken');
+        const storedUser = await SecureStore.getItemAsync('currentUser');
         if (storedToken && storedUser) {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
@@ -41,30 +41,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async (payload: LoginPayload) => {
     const data = await apiLogin(payload);
-    await AsyncStorage.setItem('authToken', data.token);
-    await AsyncStorage.setItem('currentUser', JSON.stringify(data.user));
+    await SecureStore.setItemAsync('authToken', data.token);
+    await SecureStore.setItemAsync('currentUser', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
   }, []);
 
   const register = useCallback(async (payload: RegisterPayload) => {
     const data = await apiRegister(payload);
-    await AsyncStorage.setItem('authToken', data.token);
-    await AsyncStorage.setItem('currentUser', JSON.stringify(data.user));
+    await SecureStore.setItemAsync('authToken', data.token);
+    await SecureStore.setItemAsync('currentUser', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
   }, []);
 
   const logout = useCallback(async () => {
-    await AsyncStorage.removeItem('authToken');
-    await AsyncStorage.removeItem('currentUser');
+    await SecureStore.deleteItemAsync('authToken');
+    await SecureStore.deleteItemAsync('currentUser');
     setToken(null);
     setUser(null);
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {
     setUser(updatedUser);
-    AsyncStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    SecureStore.setItemAsync('currentUser', JSON.stringify(updatedUser));
   }, []);
 
   return (
