@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { DJProfile, DigitalSet, BookingDeal } from '../types';
+import { DJProfile, DigitalSet, BookingDeal, DJAnalytics } from '../types';
 
 export const getDJs = async (page = 1, limit = 20, genre?: string, city?: string): Promise<DJProfile[]> => {
   const response = await apiClient.get<DJProfile[]>('/djs', {
@@ -107,8 +107,8 @@ export const djStreamAction = async (action: 'start' | 'stop', eventId: string) 
   return response.data;
 };
 
-export const getDJAnalytics = async (period: string = '30d'): Promise<Record<string, unknown>> => {
-  const response = await apiClient.get('/djs/me/analytics', { params: { period } });
+export const getDJAnalytics = async (period: string = '30d'): Promise<DJAnalytics> => {
+  const response = await apiClient.get<DJAnalytics>('/djs/me/analytics', { params: { period } });
   return response.data;
 };
 

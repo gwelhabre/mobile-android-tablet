@@ -138,7 +138,7 @@ const LiveDirectoryScreen: React.FC = () => {
         <FAB
           icon="broadcast"
           label="Go Live"
-          onPress={() => navigation.navigate('LiveStream', { streamId: 'new' })}
+          onPress={() => navigation.navigate('GoLive')}
           color="#ef4444"
         />
       )}

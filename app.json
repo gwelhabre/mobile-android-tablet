@@ -17,7 +17,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0f"
       },
-      "package": "com.diskriderlive.androidtablet"
+      "package": "com.diskriderlive.androidtablet",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.INTERNET"
+      ]
     },
     "platforms": ["android"]
   }

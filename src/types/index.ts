@@ -130,6 +130,8 @@ export interface LiveStream {
   totalGiftsValue: number;
   chatEnabled: boolean;
   genres?: string[];
+  youtubeVideoId?: string | null;
+  archiveUrl?: string | null;
 }
 
 export interface Wallet {
@@ -560,4 +562,32 @@ export interface EventQuoteRequest {
     email: string;
   } | null;
   quotations?: EventQuotation[];
+}
+
+// Matches GET /api/djs/me/analytics (period-aware DJ performance).
+export interface DJAnalyticsTopEvent {
+  name: string;
+  date: string;
+  checkIns: number;
+  revenue?: number; // legacy alias for checkIns
+}
+
+export interface DJAnalyticsSeriesPoint {
+  label: string;
+  earnings: number;
+  followers: number;
+}
+
+export interface DJAnalytics {
+  totalStreams: number;
+  totalViews: number;
+  giftRevenue: number;
+  tipRevenue: number;
+  earnings: number;
+  newFollowers: number;
+  setsSold: number;
+  bookingDeals: number;
+  changes: Record<string, string>;
+  series: DJAnalyticsSeriesPoint[];
+  topEvents: DJAnalyticsTopEvent[];
 }

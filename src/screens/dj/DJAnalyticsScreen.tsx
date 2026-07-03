@@ -14,38 +14,43 @@ import Card from '../../components/common/Card';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Snackbar from '../../components/common/Snackbar';
 import { getDJAnalytics } from '../../api/dj';
+import { DJAnalytics } from '../../types';
 
 const PERIODS = ['7d', '30d', '90d', '1y'];
 
 const AnalyticCard: React.FC<{ label: string; value: string; icon: string; color: string; change?: string }> = ({
   label, value, icon, color, change,
-}) => (
-  <Card style={[styles.analyticCard, { borderColor: `${color}25` }]}>
-    <View style={styles.cardTop}>
-      <View style={[styles.cardIcon, { backgroundColor: `${color}20` }]}>
-        <MaterialCommunityIcons name={icon as any} size={20} color={color} />
-      </View>
-      {change && (
-        <View style={[styles.changeBadge, { backgroundColor: change.startsWith('+') ? '#064e3b50' : '#7f1d1d50' }]}>
-          <MaterialCommunityIcons
-            name={change.startsWith('+') ? 'trending-up' : 'trending-down'}
-            size={12}
-            color={change.startsWith('+') ? '#10b981' : '#ef4444'}
-          />
-          <Text style={[styles.changeText, { color: change.startsWith('+') ? '#10b981' : '#ef4444' }]}>
-            {change}
-          </Text>
+}) => {
+  const isPositive = change ? change.startsWith('+') : true;
+  const showChange = Boolean(change) && change !== '—' && change !== '0%';
+  return (
+    <Card style={[styles.analyticCard, { borderColor: `${color}25` }]}>
+      <View style={styles.cardTop}>
+        <View style={[styles.cardIcon, { backgroundColor: `${color}20` }]}>
+          <MaterialCommunityIcons name={icon as any} size={20} color={color} />
         </View>
-      )}
-    </View>
-    <Text style={[styles.cardValue, { color }]}>{value}</Text>
-    <Text style={styles.cardLabel}>{label}</Text>
-  </Card>
-);
+        {showChange && (
+          <View style={[styles.changeBadge, { backgroundColor: isPositive ? '#064e3b50' : '#7f1d1d50' }]}>
+            <MaterialCommunityIcons
+              name={isPositive ? 'trending-up' : 'trending-down'}
+              size={12}
+              color={isPositive ? '#10b981' : '#ef4444'}
+            />
+            <Text style={[styles.changeText, { color: isPositive ? '#10b981' : '#ef4444' }]}>
+              {change}
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text style={[styles.cardValue, { color }]}>{value}</Text>
+      <Text style={styles.cardLabel}>{label}</Text>
+    </Card>
+  );
+};
 
 const DJAnalyticsScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [analytics, setAnalytics] = useState<Record<string, any>>({});
+  const [analytics, setAnalytics] = useState<DJAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
@@ -67,14 +72,14 @@ const DJAnalyticsScreen: React.FC = () => {
 
   if (loading) return <LoadingSpinner fullScreen />;
 
-  const ch = (analytics.changes as Record<string, string>) ?? {};
+  const ch = analytics?.changes ?? {};
   const analyticsCards = [
-    { label: 'Total Streams',  value: String(analytics.totalStreams  ?? 0),                          icon: 'broadcast',    color: '#ef4444', change: ch.totalStreams },
-    { label: 'Total Views',    value: Number(analytics.totalViews    ?? 0).toLocaleString(),          icon: 'eye',          color: '#3b82f6', change: ch.totalViews },
-    { label: 'Gift Revenue',   value: `$${Number(analytics.giftRevenue  ?? 0).toFixed(2)}`,           icon: 'gift',         color: '#a855f7', change: ch.giftRevenue },
-    { label: 'New Followers',  value: String(analytics.newFollowers  ?? 0),                          icon: 'account-plus', color: '#10b981', change: ch.newFollowers },
-    { label: 'Set Sales',      value: String(analytics.setsSold      ?? 0),                          icon: 'music-note',   color: '#f59e0b', change: ch.setsSold },
-    { label: 'Booking Deals',  value: String(analytics.bookingDeals  ?? 0),                          icon: 'handshake',    color: '#06b6d4', change: ch.bookingDeals },
+    { label: 'Total Streams',  value: String(analytics?.totalStreams ?? 0),                          icon: 'broadcast',    color: '#ef4444', change: ch.totalStreams },
+    { label: 'Total Views',    value: Number(analytics?.totalViews ?? 0).toLocaleString(),            icon: 'eye',          color: '#3b82f6', change: ch.totalViews },
+    { label: 'Earnings',       value: `$${Number(analytics?.earnings ?? 0).toFixed(2)}`,              icon: 'cash',         color: '#a855f7', change: ch.earnings },
+    { label: 'New Followers',  value: String(analytics?.newFollowers ?? 0),                          icon: 'account-plus', color: '#10b981', change: ch.newFollowers },
+    { label: 'Set Sales',      value: String(analytics?.setsSold ?? 0),                              icon: 'music-note',   color: '#f59e0b', change: ch.setsSold },
+    { label: 'Booking Deals',  value: String(analytics?.bookingDeals ?? 0),                          icon: 'handshake',    color: '#06b6d4', change: ch.bookingDeals },
   ];
 
   return (
@@ -135,8 +140,8 @@ const DJAnalyticsScreen: React.FC = () => {
             <MaterialCommunityIcons name="calendar-star" size={18} color="#f59e0b" />
             <Text style={styles.chartTitle}>Top Performing Events</Text>
           </View>
-          {analytics.topEvents ? (
-            (analytics.topEvents as any[]).map((e: any, i: number) => (
+          {analytics?.topEvents && analytics.topEvents.length > 0 ? (
+            analytics.topEvents.map((e, i) => (
               <View key={i} style={styles.eventRow}>
                 <View style={styles.eventRank}>
                   <Text style={styles.eventRankNum}>{i + 1}</Text>
@@ -145,7 +150,7 @@ const DJAnalyticsScreen: React.FC = () => {
                   <Text style={styles.eventName}>{e.name || `Event ${i + 1}`}</Text>
                   <Text style={styles.eventDate}>{e.date || 'Recent'}</Text>
                 </View>
-                <Text style={styles.eventRevenue}>{e.revenue || 0} check-ins</Text>
+                <Text style={styles.eventRevenue}>{e.checkIns ?? e.revenue ?? 0} check-ins</Text>
               </View>
             ))
           ) : (

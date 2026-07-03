@@ -20,7 +20,9 @@ import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Snackbar from '../../components/common/Snackbar';
+import YouTubePlayer from '../../components/common/YouTubePlayer';
 import { getStreamById } from '../../api/rankings';
+import { getStreamViewers } from '../../api/live';
 import { getGiftCatalog } from '../../api/gifts';
 import { sendTip, SUPPORTED_TIP_CURRENCIES, TIP_CURRENCY_SYMBOLS, TipCurrency } from '../../api/tips';
 import { LiveStream, ChatMessage, GiftCatalogItem } from '../../types';
@@ -90,6 +92,17 @@ const LiveStreamScreen: React.FC = () => {
       }
     };
     load();
+
+    // Real concurrent viewers (server-cached from YouTube)
+    if (streamId === 'new') return;
+    const poll = () => {
+      getStreamViewers(streamId)
+        .then((d) => setStream((s) => (s ? { ...s, viewerCount: d.viewerCount } : s)))
+        .catch(() => {});
+    };
+    poll();
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
   }, [streamId]);
 
   const sendMessage = useCallback(() => {
@@ -178,10 +191,16 @@ const LiveStreamScreen: React.FC = () => {
         {/* Left: Stream Area (70%) */}
         <View style={styles.streamPane}>
           <View style={styles.streamView}>
-            <MaterialCommunityIcons name="broadcast" size={64} color="#a855f730" />
-            <Text style={styles.streamPlaceholder}>
-              {streamId === 'new' ? 'Your stream will appear here' : 'Stream Video Player'}
-            </Text>
+            {stream?.youtubeVideoId ? (
+              <YouTubePlayer videoId={stream.youtubeVideoId} height={360} />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="broadcast" size={64} color="#a855f730" />
+                <Text style={styles.streamPlaceholder}>
+                  {streamId === 'new' ? 'Your stream will appear here' : 'Stream Video Player'}
+                </Text>
+              </>
+            )}
             {stream && (
               <View style={styles.streamOverlayStats}>
                 <View style={styles.liveIndicator}>
